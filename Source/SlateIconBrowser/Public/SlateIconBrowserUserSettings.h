@@ -34,6 +34,9 @@ public:
 	UPROPERTY(Config)
 	TEnumAsByte<ECopyCodeStyle> CopyCodeStyle;
 
+	UPROPERTY(EditAnywhere)
+	FText FontPreviewText = FText::FromString(TEXT("Why did we play Haruhikage?!")); // Just for fun!
+
 	static const USlateIconBrowserUserSettings* Get()  { return GetDefault<USlateIconBrowserUserSettings>();        }
 	static USlateIconBrowserUserSettings* GetMutable() { return GetMutableDefault<USlateIconBrowserUserSettings>(); }
 };

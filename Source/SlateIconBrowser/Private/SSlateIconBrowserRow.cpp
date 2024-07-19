@@ -10,21 +10,70 @@
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
+TSharedRef<SWidget> FSlateIconBrowserRowDesc::
+GenerateVisualizer() const
+{
+	TSharedRef<SWidget> Visualizer = SNullWidget::NullWidget;
+	switch (Type){
+		case ESlateIconBrowserRowType::Brush: { Visualizer = GenerateVisualizer_Brush(*this); break; }
+		case ESlateIconBrowserRowType::Font:  { Visualizer = GenerateVisualizer_Font(*this);  break; }
+		case ESlateIconBrowserRowType::UnImplement: { ensureMsgf(false, TEXT("Unexpected default RowType, you might forgot to define it somewhere")); break;}
+		default: { ensureMsgf(false, TEXT("Row Type forget to implement the generation function")); }
+	}
+	return Visualizer;
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc::
+GenerateVisualizer_Brush(const FSlateIconBrowserRowDesc& InDesc)
+{
+	const FSlateBrush* Brush = FEditorStyle::GetBrush(TEXT("NoResourceWrongName"));
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(InDesc.OwnerStyleName)){
+		Brush = OwnerStyle->GetOptionalBrush(InDesc.PropertyName);
+	}
+	const FVector2D DesiredIconSize = Brush->GetImageType() == ESlateBrushImageType::NoImage ? FVector2D(20): Brush->GetImageSize();
+	
+	return SNew(SImage)
+#if ENGINE_MAJOR_VERSION == 5
+		.DesiredSizeOverride(DesiredIconSize)
+#endif
+		.Image(Brush);
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc::
+GenerateVisualizer_Font(const FSlateIconBrowserRowDesc& InDesc)
+{
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(InDesc.OwnerStyleName)){
+		if (InDesc.PropertyName.ToString().Find(TEXT("FontAwesome")) != INDEX_NONE) // TODO FontAwesome Special
+		{
+			return SNew(STextBlock)
+			// .Font(OwnerStyle->GetFontStyle(InDesc.PropertyName))
+			.Text(FText::FromString(TEXT("FontAwesome WIP")))
+			.ColorAndOpacity(FColor::Orange);
+		}
+		else
+		{
+			return SNew(SEditableText)
+			.Font(OwnerStyle->GetFontStyle(InDesc.PropertyName))
+			.Text_Lambda([](){ return USlateIconBrowserUserSettings::Get()->FontPreviewText; })
+			.OnTextChanged_Lambda([](const FText& InText)                     { USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; })
+			.OnTextCommitted_Lambda([](const FText& InText, ETextCommit::Type){ USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; });
+		}
+	}
+	
+	return SNew(STextBlock)
+		.Text(FText::FromString(TEXT("ERROR")))
+		.ColorAndOpacity(FLinearColor::Red);
+}
+
+
 void SSlateIconBrowserRow::
 Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableView, TSharedPtr<FSlateIconBrowserRowDesc> InRow)
 {
 	RowDesc = *InRow;
 	SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::Construct( SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::FArguments(), InTableView);
 
-	
-	const FSlateBrush* Brush = FEditorStyle::GetBrush(TEXT("NoResourceWrongName"));
-	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(InRow->OwnerStyleName))
-	{
-		Brush = OwnerStyle->GetOptionalBrush(InRow->PropertyName);
-	}
-	FVector2D DesiredIconSize = Brush->GetImageType() == ESlateBrushImageType::NoImage ? FVector2D(20): Brush->GetImageSize();
-
-	
 	ChildSlot
 	[
 		SNew(SBorder)
@@ -44,16 +93,11 @@ Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableVie
 			.VAlign(EVerticalAlignment::VAlign_Center)
 			.Padding(FMargin(10, 5))
 			[
-				SNew(SImage)
-#if ENGINE_MAJOR_VERSION == 5
-				.DesiredSizeOverride(DesiredIconSize)
-#endif
-				.Image(Brush)
+				InRow->GenerateVisualizer()
 			]
 		]
 	];
 }
-
 
 
 TSharedRef<ITableRow> SSlateIconBrowserRow::
@@ -61,7 +105,6 @@ GenerateRow(TSharedPtr<FSlateIconBrowserRowDesc> RowDesc, const TSharedRef<STabl
 {
 	return SNew(SSlateIconBrowserRow, TableViewBase, RowDesc);
 }
-
 
 
 FReply SSlateIconBrowserRow::

@@ -12,6 +12,7 @@ enum class ESlateIconBrowserRowType
 	Font
 };
 
+
 struct FSlateIconBrowserRowDesc
 {
 	FSlateIconBrowserRowDesc(){}
@@ -24,6 +25,11 @@ struct FSlateIconBrowserRowDesc
 	FName OwnerStyleName;
 	FName PropertyName;
 	ESlateIconBrowserRowType Type = ESlateIconBrowserRowType::UnImplement;
+
+	TSharedRef<SWidget> GenerateVisualizer() const;
+	static TSharedRef<SWidget> GenerateVisualizer_Brush(const FSlateIconBrowserRowDesc&);
+	static TSharedRef<SWidget> GenerateVisualizer_Font(const FSlateIconBrowserRowDesc&);
+
 };
 
 
@@ -39,6 +45,7 @@ public:
 	FReply OnMouseDoubleClick(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
 	FReply EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
 
+	
 private:
 	FSlateIconBrowserRowDesc RowDesc;
 };
