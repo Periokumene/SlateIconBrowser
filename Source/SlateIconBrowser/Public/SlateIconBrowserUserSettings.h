@@ -33,4 +33,7 @@ public:
 
 	UPROPERTY(Config)
 	TEnumAsByte<ECopyCodeStyle> CopyCodeStyle;
+
+	static const USlateIconBrowserUserSettings* Get()  { return GetDefault<USlateIconBrowserUserSettings>();        }
+	static USlateIconBrowserUserSettings* GetMutable() { return GetMutableDefault<USlateIconBrowserUserSettings>(); }
 };

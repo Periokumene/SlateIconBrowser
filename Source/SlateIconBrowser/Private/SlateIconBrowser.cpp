@@ -22,6 +22,8 @@
 #endif
 
 #include "SlateIconBrowserHacker.h"
+#include "SlateIconBrowserUtils.h"
+#include "SSlateIconBrowserRow.h"
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SExpandableArea.h"
@@ -159,8 +161,8 @@ TSharedRef<SDockTab> FSlateIconBrowserModule::OnSpawnPluginTab(const FSpawnTabAr
 				+SVerticalBox::Slot()
 				.FillHeight(1.0)
 				[
-					SAssignNew(ListView, SListView<TSharedPtr<FName>>)
-					.OnGenerateRow_Raw(this, &FSlateIconBrowserModule::GenerateRow)
+					SAssignNew(ListView, SListView<TSharedPtr<FSlateIconBrowserRowDesc>>)
+					.OnGenerateRow_Static(SSlateIconBrowserRow::GenerateRow)
 					.ListItemsSource(&Lines)
 					.SelectionMode(ESelectionMode::Single)
 					.Visibility_Lambda([this]
@@ -382,25 +384,8 @@ void FSlateIconBrowserModule::CacheAllStyleNames()
 
 void FSlateIconBrowserModule::CacheAllLines()
 {
-	const ISlateStyle* Style = FSlateStyleRegistry::FindSlateStyle(GetConfig()->SelectedStyle);
-	const FSlateStyleSet* StyleSet = static_cast<const FSlateStyleSet*>(Style);
-	if (!StyleSet) { ensureMsgf(false, TEXT("Unexpected nullptr")); }
-
-#if ENGINE_MAJOR_VERSION == 5
-	TSet<FName> keys = Style->GetStyleKeys();
-#else
-	TSet<FName> keys = HackerMisc::GetStyleKeys(StyleSet);
-#endif
-	
-	AllLines.Empty(keys.Num());
-	AllLines.Reserve(keys.Num());
-	
-	for (FName key : keys) {
-		const FSlateBrush* brush = Style->GetOptionalBrush(key);
-		if (!brush || brush == FStyleDefaults::GetNoBrush())
-			continue;
-		AllLines.Add(key.ToString());
-	}
+	TArray<FSlateIconBrowserRowDesc> RowDescs;
+	FSlateIconBrowserUtils::CacheRowDescs(AllLines);
 	InputTextChanged(FText::FromString(GetConfig()->FilterString));
 }
 
@@ -409,128 +394,6 @@ USlateIconBrowserUserSettings* FSlateIconBrowserModule::GetConfig()
 	return GetMutableDefault<USlateIconBrowserUserSettings>();
 }
 
-void FSlateIconBrowserModule::CopyIconCodeToClipboard(FName Name, ECopyCodeStyle CodeStyle)
-{
-	FString CopyText = GenerateCopyCode(Name, CodeStyle);
-	FPlatformApplicationMisc::ClipboardCopy(*CopyText);
-	UE_LOG(LogTemp, Warning, TEXT("Copy code to clipboard: %s"), *CopyText);
-
-	FNotificationInfo Info(LOCTEXT("CopiedNotification", "C++ code copied to clipboard"));
-	Info.ExpireDuration = 3.f;
-#if ENGINE_MAJOR_VERSION == 5
-	Info.SubText = FText::FromString(CopyText);
-#else
-	Info.Text = FText::FromString(CopyText);
-#endif
-	FSlateNotificationManager::Get().AddNotification(Info);
-}
-
-FString FSlateIconBrowserModule::GenerateCopyCode(FName Name, ECopyCodeStyle CodeStyle)
-{
-	FString CopyText(TEXT(""));
-	switch (CodeStyle) {
-	case CS_FSlateIcon:
-		CopyText = FString::Printf(TEXT("FSlateIcon(%s, \"%s\")"), *TranslateDefaultStyleSets(GetConfig()->SelectedStyle), *Name.ToString());
-		break;
-	case CS_FSlateIconFinderFindIcon:
-		CopyText = FString::Printf(TEXT("FSlateIconFinder::FindIcon(\"%s\")"), *Name.ToString());
-		break;
-	case CS_CustomStyle:
-		CopyText = GetConfig()->CustomStyle.Replace(TEXT("$1"), *Name.ToString());
-		break;
-	}
-	return CopyText;
-}
-
-FReply FSlateIconBrowserModule::EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent, FName Name)
-{
-	if (PointerEvent.GetEffectingButton() != EKeys::RightMouseButton)
-		return FReply::Unhandled();
-
-	if (PointerEvent.GetEventPath() == nullptr)
-		return FReply::Unhandled();
-
-	FString CopyCode;
-	auto Clipboard = [&](FName N, ECopyCodeStyle Style)
-	{
-		CopyIconCodeToClipboard(N, Style);
-	};
-
-	FMenuBuilder MenuBuilder(true, nullptr);
-	MenuBuilder.BeginSection("CopyOptions", LOCTEXT("CopyCodeOptions", "Copy Code"));
-	{
-		CopyCode = GenerateCopyCode(Name, CS_FSlateIcon);
-		MenuBuilder.AddMenuEntry(
-			FText::FromString(CopyCode),
-			FText::GetEmpty(),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda(Clipboard, Name, CS_FSlateIcon)));
-		CopyCode = GenerateCopyCode(Name, CS_FSlateIconFinderFindIcon);
-		MenuBuilder.AddMenuEntry(
-			FText::FromString(CopyCode),
-			FText::GetEmpty(),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda(Clipboard, Name, CS_FSlateIconFinderFindIcon)));
-		
-		if (!GetConfig()->CustomStyle.IsEmpty()) {
-			CopyCode = GenerateCopyCode(Name, CS_CustomStyle);
-			MenuBuilder.AddMenuEntry(
-				FText::FromString(CopyCode),
-				FText::GetEmpty(),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateLambda(Clipboard, Name, CS_CustomStyle)));
-		}
-	}
-	MenuBuilder.EndSection();
-
-	TSharedPtr<SWidget> MenuWidget = MenuBuilder.MakeWidget();
-	FWidgetPath WidgetPath = *PointerEvent.GetEventPath();
-	const FVector2D& Location = PointerEvent.GetScreenSpacePosition();
-	FSlateApplication::Get().PushMenu(WidgetPath.Widgets.Last().Widget, WidgetPath, MenuWidget.ToSharedRef(), Location, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
-			
-	return FReply::Handled();
-}
-
-TSharedRef<ITableRow> FSlateIconBrowserModule::GenerateRow(TSharedPtr<FName> Name,
-                                                            const TSharedRef<STableViewBase>& TableViewBase)
-{
-	auto Brush = FSlateStyleRegistry::FindSlateStyle(GetConfig()->SelectedStyle)->GetOptionalBrush(*Name.Get());
-	FVector2D DesiredIconSize = Brush->GetImageSize();
-	if (Brush->GetImageType() == ESlateBrushImageType::NoImage)
-		DesiredIconSize = FVector2D(20);
-	
-	return SNew(SComboRow<TSharedRef<FName>>, TableViewBase)
-	[
-		SNew(SBorder)
-		.OnMouseDoubleClick_Lambda([&](const FGeometry& Geometry, const FPointerEvent& PointerEvent, FName N)
-		{
-			CopyIconCodeToClipboard(N, GetConfig()->CopyCodeStyle);
-			return FReply::Handled();
-		}, *Name.Get())
-		.OnMouseButtonUp_Raw(this, &FSlateIconBrowserModule::EntryContextMenu, *Name.Get())
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.VAlign(EVerticalAlignment::VAlign_Center)
-			.Padding(FMargin(10, 5))
-			[
-				SNew(STextBlock)
-				.Text(FText::FromName(*Name.Get()))
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(EVerticalAlignment::VAlign_Center)
-			.Padding(FMargin(10, 5))
-			[
-				SNew(SImage)
-#if ENGINE_MAJOR_VERSION == 5
-				.DesiredSizeOverride(DesiredIconSize)
-#endif
-				.Image(Brush)
-			]
-		]
-	];
-}
 
 void FSlateIconBrowserModule::InputTextChanged(const FText& Text)
 {
@@ -539,15 +402,15 @@ void FSlateIconBrowserModule::InputTextChanged(const FText& Text)
 	Lines.Empty(AllLines.Num());
 	
 	if (GetConfig()->FilterString.IsEmpty()) {
-		for (FString s : AllLines)
-			Lines.Add(MakeShareable(new FName(s)));
+		for (const auto& s : AllLines)
+			Lines.Add(MakeShareable(new FSlateIconBrowserRowDesc(s)));
 		if (ListView.IsValid())
 			ListView.Get()->RequestListRefresh();
 		return;
 	}
-	for (FString s : AllLines) {
-		if (s.Contains(GetConfig()->FilterString))
-			Lines.Add(MakeShareable(new FName(s)));
+	for (const auto& s : AllLines) {
+		if (s.PropertyName.ToString().Contains(GetConfig()->FilterString))
+			Lines.Add(MakeShareable(new FSlateIconBrowserRowDesc(s)));
 		if (ListView.IsValid())
 			ListView.Get()->RequestListRefresh();
 	}
