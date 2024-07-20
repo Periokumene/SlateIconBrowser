@@ -29,6 +29,8 @@
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Layout/SSeparator.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "SEnumCombobox.h"
+
 
 static const FName SlateIconBrowserTabName("SlateIconBrowser");
 
@@ -200,18 +202,38 @@ TSharedRef<SDockTab> FSlateIconBrowserModule::OnSpawnPluginTab(const FSpawnTabAr
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
-					.AutoWidth()
+					.HAlign(HAlign_Left)
 					[
-						SAssignNew(CopyNoteTextBlock, STextBlock)
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
-						.Text_Lambda([this]{ return GetCodeStyleText(GetConfig()->CopyCodeStyle); })
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						[
+							SAssignNew(CopyNoteTextBlock, STextBlock)
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+							.Text_Lambda([this]{ return GetCodeStyleText(GetConfig()->CopyCodeStyle); })
+						]
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.Padding(FMargin(0, 0))
+						[
+							SNew(STextBlock)
+							.Text_Lambda([]{ return LOCTEXT("CopyNote", "Double click a line to copy"); })
+						]
 					]
 					+SHorizontalBox::Slot()
-					.Padding(FMargin(4, 0))
-					.AutoWidth()
+					.HAlign(HAlign_Right)
 					[
-						SNew(STextBlock)
-						.Text_Lambda([]{ return LOCTEXT("CopyNote", "Double click a line to copy"); })
+						SNew(SEnumComboBox, StaticEnum<ESlateIconBrowserRowFilterType>())
+						.CurrentValue_Lambda([]()
+						{
+							return static_cast<int>(USlateIconBrowserUserSettings::Get()->RowType);
+						})
+						.OnEnumSelectionChanged_Lambda([this](int32 Value, ESelectInfo::Type)
+						{
+							const ESlateIconBrowserRowFilterType Type = static_cast<ESlateIconBrowserRowFilterType>(Value);
+							USlateIconBrowserUserSettings::GetMutable()->RowType = Type;
+							CacheAllLines();
+						})
 					]
 				]
 			]
@@ -386,7 +408,11 @@ void FSlateIconBrowserModule::CacheAllLines()
 {
 	TArray<FSlateIconBrowserRowDesc> RowDescs;
 	FSlateIconBrowserUtils::CacheRowDescs(AllLines);
-	InputTextChanged(FText::FromString(GetConfig()->FilterString));
+
+	FSlateIconBrowserFilterContext FilterContext;
+	FilterContext.FilterString = GetConfig()->FilterString;
+	FilterContext.RowType      = GetConfig()->RowType;
+	RefreshFilter(FilterContext);
 }
 
 USlateIconBrowserUserSettings* FSlateIconBrowserModule::GetConfig()
@@ -399,20 +425,31 @@ void FSlateIconBrowserModule::InputTextChanged(const FText& Text)
 {
 	GetConfig()->FilterString = Text.ToString();
 	GetConfig()->SaveConfig();
+
+	FSlateIconBrowserFilterContext FilterContext;
+	FilterContext.FilterString = Text.ToString();
+	FilterContext.RowType      = USlateIconBrowserUserSettings::Get()->RowType;
+	RefreshFilter(FilterContext);
+}
+
+
+void FSlateIconBrowserModule::
+RefreshFilter(const FSlateIconBrowserFilterContext& Context)
+{
 	Lines.Empty(AllLines.Num());
 	
-	if (GetConfig()->FilterString.IsEmpty()) {
-		for (const auto& s : AllLines)
-			Lines.Add(MakeShareable(new FSlateIconBrowserRowDesc(s)));
-		if (ListView.IsValid())
-			ListView.Get()->RequestListRefresh();
-		return;
+	for (const auto& LineDesc : AllLines){
+		if (bool bPass = LineDesc->HandleFilter(Context)){
+			Lines.Add(LineDesc);
+		}
 	}
-	for (const auto& s : AllLines) {
-		if (s.PropertyName.ToString().Contains(GetConfig()->FilterString))
-			Lines.Add(MakeShareable(new FSlateIconBrowserRowDesc(s)));
-		if (ListView.IsValid())
-			ListView.Get()->RequestListRefresh();
+
+	Lines.Sort([](const TSharedPtr<FSlateIconBrowserRowDesc>& A, const TSharedPtr<FSlateIconBrowserRowDesc>& B){
+		return A->PropertyName.Compare(B->PropertyName) < 0;
+	});
+	
+	if (ListView.IsValid()){
+		ListView.Get()->RequestListRefresh();
 	}
 }
 

@@ -1,5 +1,6 @@
 #include "SSlateIconBrowserRow.h"
 
+#include "SlateIconBrowserHacker.h"
 #include "SlateIconBrowserUserSettings.h"
 #include "SlateIconBrowserUtils.h"
 #include "SlateOptMacros.h"
@@ -10,26 +11,40 @@
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
-TSharedRef<SWidget> FSlateIconBrowserRowDesc::
-GenerateVisualizer() const
+bool FSlateIconBrowserRowDesc::
+HandleFilter(const FSlateIconBrowserFilterContext& Context) const
 {
-	TSharedRef<SWidget> Visualizer = SNullWidget::NullWidget;
-	switch (Type){
-		case ESlateIconBrowserRowType::Brush: { Visualizer = GenerateVisualizer_Brush(*this); break; }
-		case ESlateIconBrowserRowType::Font:  { Visualizer = GenerateVisualizer_Font(*this);  break; }
-		case ESlateIconBrowserRowType::UnImplement: { ensureMsgf(false, TEXT("Unexpected default RowType, you might forgot to define it somewhere")); break;}
-		default: { ensureMsgf(false, TEXT("Row Type forget to implement the generation function")); }
-	}
-	return Visualizer;
+	bool bPass = true;
+	const bool bValidFilterString = !Context.FilterString.Replace(TEXT(" "), TEXT("")).IsEmpty();
+	bPass &= bValidFilterString ? PropertyName.ToString().Contains(Context.FilterString) : true;
+	bPass &= CustomHandleFilter(Context);
+	return bPass;
 }
 
 
-TSharedRef<SWidget> FSlateIconBrowserRowDesc::
-GenerateVisualizer_Brush(const FSlateIconBrowserRowDesc& InDesc)
+void FSlateIconBrowserRowDesc_Brush::
+CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
+{
+	TArray<FName> Keys;
+	TMap<FName, FSlateBrush*>* BrushMap = Hacker::Steal_BrushResources(StyleOwner);
+	BrushMap->GenerateKeyArray(Keys);
+	for (const FName& Key : Keys)
+	{
+		const FSlateBrush* Brush = StyleOwner->GetOptionalBrush(Key);
+		const bool bValidBrush   = Brush && Brush != FStyleDefaults::GetNoBrush();
+		if (bValidBrush){
+			RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Brush(USlateIconBrowserUserSettings::Get()->SelectedStyle, Key)));
+		}
+	}
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Brush::
+GenerateVisualizer() const
 {
 	const FSlateBrush* Brush = FEditorStyle::GetBrush(TEXT("NoResourceWrongName"));
-	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(InDesc.OwnerStyleName)){
-		Brush = OwnerStyle->GetOptionalBrush(InDesc.PropertyName);
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(OwnerStyleName)){
+		Brush = OwnerStyle->GetOptionalBrush(PropertyName);
 	}
 	const FVector2D DesiredIconSize = Brush->GetImageType() == ESlateBrushImageType::NoImage ? FVector2D(20): Brush->GetImageSize();
 	
@@ -40,12 +55,30 @@ GenerateVisualizer_Brush(const FSlateIconBrowserRowDesc& InDesc)
 		.Image(Brush);
 }
 
-
-TSharedRef<SWidget> FSlateIconBrowserRowDesc::
-GenerateVisualizer_Font(const FSlateIconBrowserRowDesc& InDesc)
+bool FSlateIconBrowserRowDesc_Brush::
+CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
 {
-	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(InDesc.OwnerStyleName)){
-		if (InDesc.PropertyName.ToString().Find(TEXT("FontAwesome")) != INDEX_NONE) // TODO FontAwesome Special
+	return Context.RowType == ESlateIconBrowserRowFilterType::Brush;
+}
+
+
+void FSlateIconBrowserRowDesc_Font::
+CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
+{
+	TArray<FName> Keys;
+	TMap<FName, FSlateFontInfo>* FontMap = Hacker::Steal_FontInfoResources(StyleOwner);
+	FontMap->GenerateKeyArray(Keys);
+	for (const FName& Key : Keys){
+		RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Font(USlateIconBrowserUserSettings::Get()->SelectedStyle, Key)));
+	}
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Font::
+GenerateVisualizer() const
+{
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(OwnerStyleName)){
+		if (PropertyName.ToString().Find(TEXT("FontAwesome")) != INDEX_NONE) // TODO FontAwesome Special
 		{
 			return SNew(STextBlock)
 			// .Font(OwnerStyle->GetFontStyle(InDesc.PropertyName))
@@ -55,7 +88,7 @@ GenerateVisualizer_Font(const FSlateIconBrowserRowDesc& InDesc)
 		else
 		{
 			return SNew(SEditableText)
-			.Font(OwnerStyle->GetFontStyle(InDesc.PropertyName))
+			.Font(OwnerStyle->GetFontStyle(PropertyName))
 			.Text_Lambda([](){ return USlateIconBrowserUserSettings::Get()->FontPreviewText; })
 			.OnTextChanged_Lambda([](const FText& InText)                     { USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; })
 			.OnTextCommitted_Lambda([](const FText& InText, ETextCommit::Type){ USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; });
@@ -67,11 +100,17 @@ GenerateVisualizer_Font(const FSlateIconBrowserRowDesc& InDesc)
 		.ColorAndOpacity(FLinearColor::Red);
 }
 
+bool FSlateIconBrowserRowDesc_Font::
+CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
+{
+	return Context.RowType == ESlateIconBrowserRowFilterType::Font;
+}
+
 
 void SSlateIconBrowserRow::
 Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableView, TSharedPtr<FSlateIconBrowserRowDesc> InRow)
 {
-	RowDesc = *InRow;
+	RowDesc = InRow;
 	SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::Construct( SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::FArguments(), InTableView);
 
 	ChildSlot
@@ -110,7 +149,7 @@ GenerateRow(TSharedPtr<FSlateIconBrowserRowDesc> RowDesc, const TSharedRef<STabl
 FReply SSlateIconBrowserRow::
 OnMouseDoubleClick(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 {
-	FSlateIconBrowserUtils::CopyIconCodeToClipboard(RowDesc.PropertyName, USlateIconBrowserUserSettings::Get()->CopyCodeStyle);
+	FSlateIconBrowserUtils::CopyIconCodeToClipboard(RowDesc->PropertyName, USlateIconBrowserUserSettings::Get()->CopyCodeStyle);
 	return FReply::Handled();
 }
 
@@ -134,26 +173,26 @@ EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 	FMenuBuilder MenuBuilder(true, nullptr);
 	MenuBuilder.BeginSection("CopyOptions", LOCTEXT("CopyCodeOptions", "Copy Code"));
 	{
-		CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc.PropertyName, CS_FSlateIcon);
+		CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_FSlateIcon);
 		MenuBuilder.AddMenuEntry(
 			FText::FromString(CopyCode),
 			FText::GetEmpty(),
 			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc.PropertyName, CS_FSlateIcon)));
-		CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc.PropertyName, CS_FSlateIconFinderFindIcon);
+			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_FSlateIcon)));
+		CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_FSlateIconFinderFindIcon);
 		MenuBuilder.AddMenuEntry(
 			FText::FromString(CopyCode),
 			FText::GetEmpty(),
 			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc.PropertyName, CS_FSlateIconFinderFindIcon)));
+			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_FSlateIconFinderFindIcon)));
 		
 		if (!USlateIconBrowserUserSettings::Get()->CustomStyle.IsEmpty()) {
-			CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc.PropertyName, CS_CustomStyle);
+			CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_CustomStyle);
 			MenuBuilder.AddMenuEntry(
 				FText::FromString(CopyCode),
 				FText::GetEmpty(),
 				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc.PropertyName, CS_CustomStyle)));
+				FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_CustomStyle)));
 		}
 	}
 	MenuBuilder.EndSection();

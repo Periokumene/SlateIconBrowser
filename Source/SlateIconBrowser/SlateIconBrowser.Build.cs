@@ -10,14 +10,12 @@ public class SlateIconBrowser : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				// ... add public include paths required here ...
 			}
 			);
 				
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				// ... add other private include paths required here ...
 			}
 			);
 			
@@ -26,7 +24,6 @@ public class SlateIconBrowser : ModuleRules
 			new string[]
 			{
 				"Core",
-				// ... add other public dependencies that you statically link with here ...
 			}
 			);
 			
@@ -49,7 +46,7 @@ public class SlateIconBrowser : ModuleRules
 				"EditorStyle",
 				"ApplicationCore",
 				"WorkspaceMenuStructure",
-				// ... add private dependencies that you statically link with here ...	
+				"EditorWidgets",
 			}
 			);
 		
@@ -57,7 +54,6 @@ public class SlateIconBrowser : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
-				// ... add any modules that your module loads dynamically here ...
 			}
 			);
 	}

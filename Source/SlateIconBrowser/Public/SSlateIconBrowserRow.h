@@ -1,35 +1,47 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Widgets/SCompoundWidget.h"
+#include "SlateIconBrowser.h"
+#include "SlateIconBrowserUserSettings.h"
 
 
-enum class ESlateIconBrowserRowType
-{
-	UnImplement,
-	Brush,
-	Widget,
-	Font
-};
-
+class FSlateStyleSet;
 
 struct FSlateIconBrowserRowDesc
 {
 	FSlateIconBrowserRowDesc(){}
-	FSlateIconBrowserRowDesc(const FName& InStyleOwnerName, const FName& InPropertyName, ESlateIconBrowserRowType InType)
+	FSlateIconBrowserRowDesc(const FName& InStyleOwnerName, const FName& InPropertyName)
 		: OwnerStyleName(InStyleOwnerName)
 		, PropertyName(InPropertyName)
-		, Type(InType)
 	{}
+	virtual ~FSlateIconBrowserRowDesc() {}
 	
 	FName OwnerStyleName;
 	FName PropertyName;
-	ESlateIconBrowserRowType Type = ESlateIconBrowserRowType::UnImplement;
+	virtual TSharedRef<SWidget> GenerateVisualizer() const = 0;
+	bool HandleFilter(const FSlateIconBrowserFilterContext& Context) const;
+	
+protected:
+	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const = 0;
+};
 
-	TSharedRef<SWidget> GenerateVisualizer() const;
-	static TSharedRef<SWidget> GenerateVisualizer_Brush(const FSlateIconBrowserRowDesc&);
-	static TSharedRef<SWidget> GenerateVisualizer_Font(const FSlateIconBrowserRowDesc&);
 
+
+struct FSlateIconBrowserRowDesc_Brush : FSlateIconBrowserRowDesc
+{
+	FSlateIconBrowserRowDesc_Brush(const FName& InStyleOwnerName, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwnerName, InPropertyName) {}
+	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
+	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
+	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
+};
+
+
+struct FSlateIconBrowserRowDesc_Font : FSlateIconBrowserRowDesc
+{
+	FSlateIconBrowserRowDesc_Font(const FName& InStyleOwnerName, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwnerName, InPropertyName) {}
+	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
+	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
+	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
 };
 
 
@@ -47,5 +59,5 @@ public:
 
 	
 private:
-	FSlateIconBrowserRowDesc RowDesc;
+	TSharedPtr<FSlateIconBrowserRowDesc> RowDesc;
 };

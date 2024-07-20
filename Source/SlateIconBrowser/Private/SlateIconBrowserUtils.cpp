@@ -48,41 +48,19 @@ GenerateCopyCode(FName Name, ECopyCodeStyle CodeStyle)
 }
 
 void FSlateIconBrowserUtils::
-CacheRowDescs(TArray<FSlateIconBrowserRowDesc>& RowDescArrOut)
+CacheRowDescs(TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowDescArrOut)
 {
+	RowDescArrOut.Reset();
+	
 	const ISlateStyle* Style = FSlateStyleRegistry::FindSlateStyle(USlateIconBrowserUserSettings::Get()->SelectedStyle);
 	const FSlateStyleSet* StyleSet = static_cast<const FSlateStyleSet*>(Style);
 	if (!StyleSet){
 		ensureMsgf(false, TEXT("Unexpected nullptr"));
+		return;
 	}
-	
-	const int32 KeyNum = HackerMisc::GetStyleKeys(StyleSet).Num();
-	RowDescArrOut.Empty(KeyNum);
-	
-	// Brush
-	// {
-	// 	TArray<FName> Keys;
-	// 	TMap<FName, FSlateBrush*>* BrushMap = Hacker::Steal_BrushResources(StyleSet);
-	// 	BrushMap->GenerateKeyArray(Keys);
-	// 	for (const FName& Key : Keys)
-	// 	{
-	// 		const FSlateBrush* Brush = Style->GetOptionalBrush(Key);
-	// 		const bool bValidBrush   = Brush && Brush != FStyleDefaults::GetNoBrush();
-	// 		if (bValidBrush){
-	// 			RowDescArrOut.Emplace(USlateIconBrowserUserSettings::Get()->SelectedStyle, Key, ESlateIconBrowserRowType::Brush);
-	// 		}
-	// 	}
-	// }
-	
-	// Font
-	{
-		TArray<FName> Keys;
-		TMap<FName, FSlateFontInfo>* FontMap = Hacker::Steal_FontInfoResources(StyleSet);
-		FontMap->GenerateKeyArray(Keys);
-		for (const FName& Key : Keys){
-			RowDescArrOut.Emplace(USlateIconBrowserUserSettings::Get()->SelectedStyle, Key, ESlateIconBrowserRowType::Font);
-		}
-	}
+
+	FSlateIconBrowserRowDesc_Brush::CacheFromStyle(StyleSet, RowDescArrOut);
+	FSlateIconBrowserRowDesc_Font::CacheFromStyle(StyleSet, RowDescArrOut);
 }
 
 

@@ -24,6 +24,12 @@ template<typename T> class SComboBox;
 #endif
 
 
+struct FSlateIconBrowserFilterContext
+{
+	FString FilterString;
+	ESlateIconBrowserRowFilterType RowType;
+};
+
 class FSlateIconBrowserModule : public IModuleInterface
 {
 public:
@@ -31,12 +37,17 @@ public:
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+
 	
 private:
+	// Avoid use Config param to refresh filter directly (old solution in InputTextChanged)
+	void RefreshFilter(const FSlateIconBrowserFilterContext& Context);
+	
 	void InputTextChanged(const FText& Text);
 	void MakeValidConfiguration();
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 
+	
 	void SelectCodeStyle(ECopyCodeStyle CopyStyle);
 	FText GetCodeStyleText(ECopyCodeStyle CopyStyle);
 	FText GetCodeStyleTooltip(ECopyCodeStyle CopyStyle);
@@ -44,17 +55,22 @@ private:
 	void FillHelpMenu(FMenuBuilder& MenuBuilder);
 	TSharedRef<SWidget> MakeMainMenu();
 
+	
 	FString TranslateDefaultStyleSets(FName StyleSet);
 	void FillDefaultStyleSetCodes();
 
+	
 	void CacheAllStyleNames();
 	void CacheAllLines();
 
+	
 	TArray<TSharedPtr<FSlateIconBrowserRowDesc>> Lines;
-	TArray<FSlateIconBrowserRowDesc> AllLines;
+	TArray<TSharedPtr<FSlateIconBrowserRowDesc>> AllLines;
+	
 	TArray<TSharedPtr<FName>> AllStyles;
 	USlateIconBrowserUserSettings* GetConfig();
 
+	
 private:
 	TSharedPtr<SListView<TSharedPtr<FSlateIconBrowserRowDesc>>> ListView;
 	TSharedPtr<SComboBox<TSharedPtr<FName>>> StyleSelectionComboBox;
