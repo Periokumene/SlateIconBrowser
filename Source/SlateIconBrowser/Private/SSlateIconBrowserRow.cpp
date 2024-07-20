@@ -33,7 +33,7 @@ CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBro
 		const FSlateBrush* Brush = StyleOwner->GetOptionalBrush(Key);
 		const bool bValidBrush   = Brush && Brush != FStyleDefaults::GetNoBrush();
 		if (bValidBrush){
-			RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Brush(USlateIconBrowserUserSettings::Get()->SelectedStyle, Key)));
+			RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Brush(StyleOwner, Key)));
 		}
 	}
 }
@@ -69,7 +69,7 @@ CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBro
 	TMap<FName, FSlateFontInfo>* FontMap = Hacker::Steal_FontInfoResources(StyleOwner);
 	FontMap->GenerateKeyArray(Keys);
 	for (const FName& Key : Keys){
-		RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Font(USlateIconBrowserUserSettings::Get()->SelectedStyle, Key)));
+		RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Font(StyleOwner, Key)));
 	}
 }
 
@@ -100,10 +100,139 @@ GenerateVisualizer() const
 		.ColorAndOpacity(FLinearColor::Red);
 }
 
+
 bool FSlateIconBrowserRowDesc_Font::
 CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
 {
 	return Context.RowType == ESlateIconBrowserRowFilterType::Font;
+}
+
+
+void FSlateIconBrowserRowDesc_Widget::
+CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
+{
+	TMap<FName, TSharedRef<FSlateWidgetStyle>>* WidgetStyleMap = Hacker::Steal_WidgetStyleValues(StyleOwner);
+	for (const auto& Pair : *WidgetStyleMap){
+		RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Widget(StyleOwner, Pair.Key, Pair.Value)));
+	}
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer() const
+{
+	if (WidgetStyleTypeName == FButtonStyle::TypeName)    { return GenerateVisualizer_Button();    }
+	if (WidgetStyleTypeName == FCheckBoxStyle::TypeName)  { return GenerateVisualizer_CheckBox();  }
+	if (WidgetStyleTypeName == FTextBlockStyle::TypeName) { return GenerateVisualizer_TextBlock(); }
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_Button() const
+{
+	if (const FButtonStyle* WS = GetLegalWidgetStyle<FButtonStyle>())
+	{
+		return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		[
+			SNew(SButton)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Base)
+			.ButtonStyle(WS)
+		]
+		+SHorizontalBox::Slot()
+		[
+			SNew(SButton)
+			.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Insert)
+			.ButtonStyle(WS)
+		];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_CheckBox() const
+{
+	if (const FCheckBoxStyle* WS = GetLegalWidgetStyle<FCheckBoxStyle>())
+	{
+		return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		[
+			SNew(SCheckBox)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Base)
+			.Style(WS)
+		]
+		+SHorizontalBox::Slot()
+		[
+			SNew(SCheckBox)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Insert)
+			.Style(WS)
+			[
+				SNew(STextBlock)
+				.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			]
+		];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_TextBlock() const
+{
+	if (const FTextBlockStyle* WS = GetLegalWidgetStyle<FTextBlockStyle>())
+    {
+    	return SNew(SHorizontalBox)
+    	+SHorizontalBox::Slot()
+    	[
+    		SNew(STextBlock)
+    		.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Base)
+    		.TextStyle(WS)
+    	]
+    	+SHorizontalBox::Slot()
+    	[
+    		SNew(SButton)
+    		.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+    		.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Insert)
+    		.TextStyle(WS)
+    	];
+    }
+    return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_Failure(const FText& InComment) const
+{
+	const FText TypeName   = FText::FromName(WidgetStyleTypeName);
+	return SNew(STextBlock)
+	.Text(FText::Format(LOCTEXT("WSTypeHint", "{0} | {1} "), TypeName, InComment))
+	.ColorAndOpacity(FColor::Orange);
+}
+
+EVisibility FSlateIconBrowserRowDesc_Widget::
+GetVisibility_Base()
+{
+	return USlateIconBrowserUserSettings::Get()->bWidgetInsertText ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+EVisibility FSlateIconBrowserRowDesc_Widget::
+GetVisibility_Insert()
+{
+	return USlateIconBrowserUserSettings::Get()->bWidgetInsertText ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+FText FSlateIconBrowserRowDesc_Widget::
+GetInsertText()
+{
+	return USlateIconBrowserUserSettings::Get()->FontPreviewText;
+}
+
+
+bool FSlateIconBrowserRowDesc_Widget::
+CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
+{
+	return true;
 }
 
 

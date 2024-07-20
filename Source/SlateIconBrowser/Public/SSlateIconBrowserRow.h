@@ -2,7 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "SlateIconBrowser.h"
-#include "SlateIconBrowserUserSettings.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 
 class FSlateStyleSet;
@@ -10,8 +11,8 @@ class FSlateStyleSet;
 struct FSlateIconBrowserRowDesc
 {
 	FSlateIconBrowserRowDesc(){}
-	FSlateIconBrowserRowDesc(const FName& InStyleOwnerName, const FName& InPropertyName)
-		: OwnerStyleName(InStyleOwnerName)
+	FSlateIconBrowserRowDesc(const ISlateStyle* InStyleOwner, const FName& InPropertyName)
+		: OwnerStyleName(InStyleOwner->GetStyleSetName())
 		, PropertyName(InPropertyName)
 	{}
 	virtual ~FSlateIconBrowserRowDesc() {}
@@ -26,25 +27,73 @@ protected:
 };
 
 
-
+//======================================================================================================================
 struct FSlateIconBrowserRowDesc_Brush : FSlateIconBrowserRowDesc
 {
-	FSlateIconBrowserRowDesc_Brush(const FName& InStyleOwnerName, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwnerName, InPropertyName) {}
+	FSlateIconBrowserRowDesc_Brush(const ISlateStyle* InStyleOwner, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwner, InPropertyName) {}
 	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
 	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
 	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
 };
 
 
+//======================================================================================================================
 struct FSlateIconBrowserRowDesc_Font : FSlateIconBrowserRowDesc
 {
-	FSlateIconBrowserRowDesc_Font(const FName& InStyleOwnerName, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwnerName, InPropertyName) {}
+	FSlateIconBrowserRowDesc_Font(const ISlateStyle* InStyleOwner, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwner, InPropertyName) {}
 	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
 	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
 	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
 };
 
 
+//======================================================================================================================
+struct FSlateIconBrowserRowDesc_Widget : FSlateIconBrowserRowDesc
+{
+	FSlateIconBrowserRowDesc_Widget(const ISlateStyle* InStyleOwner, const FName& InPropertyName, const TSharedRef<FSlateWidgetStyle> WidgetStyle)
+		: FSlateIconBrowserRowDesc(InStyleOwner, InPropertyName), WidgetStyleTypeName(WidgetStyle->GetTypeName()) {}
+	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
+	
+private:
+	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
+
+	// Yes template can be avoided here, but it will make redundant code everywhere......
+	template<typename WidgetStyleType>
+	const WidgetStyleType* GetLegalWidgetStyle() const; 
+	
+	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
+	TSharedRef<SWidget> GenerateVisualizer_Button() const;
+	TSharedRef<SWidget> GenerateVisualizer_CheckBox() const;
+	TSharedRef<SWidget> GenerateVisualizer_TextBlock() const;
+	TSharedRef<SWidget> GenerateVisualizer_Failure(const FText& InComment = FText::GetEmpty()) const;
+
+	static EVisibility GetVisibility_Base();
+	static EVisibility GetVisibility_Insert();
+	static FText GetInsertText();
+	
+	FName WidgetStyleTypeName;
+};
+
+
+template <typename WidgetStyleType>
+const WidgetStyleType* FSlateIconBrowserRowDesc_Widget::
+GetLegalWidgetStyle() const
+{
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(OwnerStyleName))
+	{
+		const WidgetStyleType& WS = OwnerStyle->GetWidgetStyle<WidgetStyleType>(PropertyName);
+		if (&WS != &WidgetStyleType::GetDefault()){
+			return &WS;
+		}
+	}
+	return nullptr;
+}
+
+
+//======================================================================================================================
+// Container to hold the RowDesc, All Detail should be handled by RowDesc virtual function.
+// This widget is only used to route interaction event to RowDesc.
+//======================================================================================================================
 class SSlateIconBrowserRow : public SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>
 {
 public:

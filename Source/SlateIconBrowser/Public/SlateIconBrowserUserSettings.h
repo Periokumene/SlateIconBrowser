@@ -17,6 +17,7 @@ enum class ESlateIconBrowserRowFilterType
 	FontAwesome,
 };
 
+
 UENUM()
 enum ECopyCodeStyle
 {
@@ -45,6 +46,9 @@ public:
 	UPROPERTY(Config)
 	TEnumAsByte<ECopyCodeStyle> CopyCodeStyle;
 
+	UPROPERTY()
+	bool bWidgetInsertText;
+	
 	UPROPERTY()
 	FText FontPreviewText = FText::FromString(TEXT("Why did we play Haruhikage?!")); // Just for fun!
 

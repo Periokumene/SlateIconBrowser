@@ -61,6 +61,7 @@ CacheRowDescs(TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowDescArrOut)
 
 	FSlateIconBrowserRowDesc_Brush::CacheFromStyle(StyleSet, RowDescArrOut);
 	FSlateIconBrowserRowDesc_Font::CacheFromStyle(StyleSet, RowDescArrOut);
+	FSlateIconBrowserRowDesc_Widget::CacheFromStyle(StyleSet, RowDescArrOut);
 }
 
 

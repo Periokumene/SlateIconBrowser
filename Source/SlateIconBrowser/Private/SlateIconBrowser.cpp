@@ -235,6 +235,36 @@ TSharedRef<SDockTab> FSlateIconBrowserModule::OnSpawnPluginTab(const FSpawnTabAr
 							CacheAllLines();
 						})
 					]
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Right)
+					.Padding(FMargin(2, 0))
+					[
+						SNew(SSplitter)
+					]
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Right)
+					[
+						SNew(SCheckBox)
+						.Visibility_Lambda([]()
+						{
+							return USlateIconBrowserUserSettings::Get()->RowType == ESlateIconBrowserRowFilterType::Widget ?
+								EVisibility::Visible:
+								EVisibility::Collapsed;
+						})
+						.IsChecked_Lambda([]()
+						{
+							return USlateIconBrowserUserSettings::Get()->bWidgetInsertText?
+								ECheckBoxState::Checked:
+								ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([](ECheckBoxState NewState)
+						{
+							USlateIconBrowserUserSettings::GetMutable()->bWidgetInsertText = NewState == ECheckBoxState::Checked;
+						})
+						[
+							SNew(STextBlock).Text(LOCTEXT("InsertText", "Insert Text"))
+						]
+					]
 				]
 			]
 		];
