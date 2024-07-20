@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/DeveloperSettings.h"
 #include "UObject/Object.h"
 #include "SlateIconBrowserUserSettings.generated.h"
 
@@ -26,19 +27,24 @@ enum ECopyCodeStyle
 	CS_CustomStyle,
 };
 
+
 UCLASS(Config=EditorPerProjectUserSettings, ConfigDoNotCheckDefaults)
 class USlateIconBrowserUserSettings : public UObject
 {
 	GENERATED_BODY()
 	
 public:
-	// I think there is no need to make filter string serialized by config
-	// This makes it cumbersome if I open IconBrowser next time but I just want to search another Brush
+	static const USlateIconBrowserUserSettings* Get()  { return GetDefault<USlateIconBrowserUserSettings>(); }
+	static USlateIconBrowserUserSettings* GetMutable() { return GetMutableDefault<USlateIconBrowserUserSettings>(); }
+
+	// Filter Related
+	void ValidateConfig();
+	
 	UPROPERTY()
 	FString FilterString;
-
+	
 	UPROPERTY(Config)
-	FString CustomStyle;
+	FString CustomFormat;
 
 	UPROPERTY(Config)
 	FName SelectedStyle;
@@ -46,6 +52,8 @@ public:
 	UPROPERTY(Config)
 	TEnumAsByte<ECopyCodeStyle> CopyCodeStyle;
 
+	
+	// Widget Style Visualizer
 	UPROPERTY()
 	bool bWidgetInsertText;
 	
@@ -55,6 +63,22 @@ public:
 	UPROPERTY()
 	ESlateIconBrowserRowFilterType RowType;
 
-	static const USlateIconBrowserUserSettings* Get()  { return GetDefault<USlateIconBrowserUserSettings>(); }
-	static USlateIconBrowserUserSettings* GetMutable() { return GetMutableDefault<USlateIconBrowserUserSettings>(); }
+
+private:
+	UPROPERTY(VisibleAnywhere, Transient)
+	TMap<FName, FString> BaseTranslator;
+	
+	UPROPERTY(EditAnywhere, Config)
+	TMap<FName, FString> AdditionalTranslator;
+	
+	bool bTranslatorInitialized = false;
+	
+public:
+	void InitTranslator();
+	FString TryTranslate(const FName& InStyleSetName);
+
+public:
+	// Diable Row List Selection, hover color will be lost when right click menu pop up
+	// So use this to optimize hover color change
+	TWeakPtr<SWidget> LastHoveredRow;
 };

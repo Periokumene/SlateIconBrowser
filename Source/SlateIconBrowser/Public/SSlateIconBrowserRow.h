@@ -101,12 +101,12 @@ public:
 	SLATE_END_ARGS()
 	
 	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableView, TSharedPtr<FSlateIconBrowserRowDesc> InDesc);
-	static TSharedRef<ITableRow> GenerateRow(TSharedPtr<FSlateIconBrowserRowDesc> RowDesc, const TSharedRef<STableViewBase>& TableViewBase);
 
+	virtual void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	FSlateColor GetHoverColor() const;
 	FReply OnMouseDoubleClick(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
 	FReply EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
 
-	
 private:
 	TSharedPtr<FSlateIconBrowserRowDesc> RowDesc;
 };

@@ -41,7 +41,7 @@ GenerateCopyCode(FName Name, ECopyCodeStyle CodeStyle)
 		CopyText = FString::Printf(TEXT("FSlateIconFinder::FindIcon(\"%s\")"), *Name.ToString());
 		break;
 	case CS_CustomStyle:
-		CopyText = USlateIconBrowserUserSettings::Get()->CustomStyle.Replace(TEXT("$1"), *Name.ToString());
+		CopyText = USlateIconBrowserUserSettings::Get()->CustomFormat.Replace(TEXT("$1"), *Name.ToString());
 		break;
 	}
 	return CopyText;

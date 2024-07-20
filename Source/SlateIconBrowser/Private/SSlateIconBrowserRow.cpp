@@ -241,38 +241,38 @@ Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableVie
 {
 	RowDesc = InRow;
 	SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::Construct( SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::FArguments(), InTableView);
-
+	
 	ChildSlot
 	[
-		SNew(SBorder)
-		.OnMouseDoubleClick(this, &SSlateIconBrowserRow::OnMouseDoubleClick)
-		.OnMouseButtonUp_Raw(this, &SSlateIconBrowserRow::EntryContextMenu)
+		SNew(SBox)
+		.Padding(1.f)
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.VAlign(EVerticalAlignment::VAlign_Center)
-			.Padding(FMargin(10, 5))
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.LightGroupBorder"))
+			.BorderBackgroundColor(this, &SSlateIconBrowserRow::GetHoverColor)
+			.OnMouseDoubleClick(this, &SSlateIconBrowserRow::OnMouseDoubleClick)
+			.OnMouseButtonUp_Raw(this, &SSlateIconBrowserRow::EntryContextMenu)
 			[
-				SNew(STextBlock)
-				.Text(FText::FromName(InRow->PropertyName))
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(EVerticalAlignment::VAlign_Center)
-			.Padding(FMargin(10, 5))
-			[
-				InRow->GenerateVisualizer()
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(EVerticalAlignment::VAlign_Center)
+				.Padding(FMargin(10, 5))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromName(InRow->PropertyName))
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(EVerticalAlignment::VAlign_Center)
+				.Padding(FMargin(10, 5))
+				[
+					InRow->GenerateVisualizer()
+				]
 			]
 		]
 	];
 }
 
-
-TSharedRef<ITableRow> SSlateIconBrowserRow::
-GenerateRow(TSharedPtr<FSlateIconBrowserRowDesc> RowDesc, const TSharedRef<STableViewBase>& TableViewBase)
-{
-	return SNew(SSlateIconBrowserRow, TableViewBase, RowDesc);
-}
 
 
 FReply SSlateIconBrowserRow::
@@ -315,7 +315,7 @@ EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_FSlateIconFinderFindIcon)));
 		
-		if (!USlateIconBrowserUserSettings::Get()->CustomStyle.IsEmpty()) {
+		if (!USlateIconBrowserUserSettings::Get()->CustomFormat.IsEmpty()) {
 			CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_CustomStyle);
 			MenuBuilder.AddMenuEntry(
 				FText::FromString(CopyCode),
@@ -332,6 +332,26 @@ EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 	FSlateApplication::Get().PushMenu(WidgetPath.Widgets.Last().Widget, WidgetPath, MenuWidget.ToSharedRef(), Location, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 			
 	return FReply::Handled();
+}
+
+void SSlateIconBrowserRow::
+OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	SComboRow<TSharedPtr<FSlateIconBrowserRowDesc>>::OnMouseEnter(MyGeometry, MouseEvent);
+	USlateIconBrowserUserSettings::GetMutable()->LastHoveredRow = SharedThis(this);
+}
+
+FSlateColor SSlateIconBrowserRow::
+GetHoverColor() const
+{
+	constexpr  FLinearColor HoverColor(0.1,0.1,0.1);
+	constexpr  FLinearColor NormalColor(0.02,0.02,0.02);
+	
+	TWeakPtr<SWidget> LastHoverRow = USlateIconBrowserUserSettings::Get()->LastHoveredRow;
+	if (LastHoverRow.IsValid()){
+		return LastHoverRow.Pin().Get() == this ? HoverColor : NormalColor; 
+	}
+	return NormalColor;
 }
 
 
