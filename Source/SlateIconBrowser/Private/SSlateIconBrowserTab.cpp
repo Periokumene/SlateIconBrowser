@@ -97,20 +97,30 @@ CacheAllLines()
 	TArray<FSlateIconBrowserRowDesc> RowDescs;
 	FSlateIconBrowserUtils::CacheRowDescs(AllRows);
 
+	FSlateIconBrowserFilterContext Context = FilterCollectContext();
+	FilterRefresh(Context);
+}
+
+FSlateIconBrowserFilterContext SSlateIconBrowserTab::
+FilterCollectContext() const
+{
 	FSlateIconBrowserFilterContext FilterContext;
 	FilterContext.FilterString = USlateIconBrowserUserSettings::Get()->FilterString;
 	FilterContext.RowType      = USlateIconBrowserUserSettings::Get()->RowType;
-	RefreshFilter(FilterContext);
+	return FilterContext;
 }
 
 
 void SSlateIconBrowserTab::
-RefreshFilter(const FSlateIconBrowserFilterContext& Context)
+FilterRefresh(const FSlateIconBrowserFilterContext& Context)
 {
 	Rows.Empty(AllRows.Num());
+	WidgetStyleList.Reset();
 	
 	for (const auto& LineDesc : AllRows){
-		if (bool bPass = LineDesc->HandleFilter(Context)){
+		if (bool bPass = LineDesc->HandleFilter(Context))
+		{
+			LineDesc->CustomGenDetailFilter(SharedThis(this));
 			Rows.Add(LineDesc);
 		}
 	}
@@ -121,6 +131,11 @@ RefreshFilter(const FSlateIconBrowserFilterContext& Context)
 	
 	if (ListView.IsValid()){
 		ListView.Get()->RequestListRefresh();
+		ListView.Get()->ScrollToTop();
+	}
+	if (WidgetStyleComboBox.IsValid()){
+		WidgetStyleList.Sort([](const TSharedPtr<FName>& A, const TSharedPtr<FName>& B) { return A->Compare(*B) < 0; });
+		WidgetStyleComboBox->RefreshOptions();
 	}
 }
 
@@ -137,10 +152,8 @@ OnFilterStringChange(const FText& Text)
 	USlateIconBrowserUserSettings::GetMutable()->FilterString = Text.ToString();
 	USlateIconBrowserUserSettings::GetMutable()->SaveConfig();
 
-	FSlateIconBrowserFilterContext FilterContext;
-	FilterContext.FilterString = Text.ToString();
-	FilterContext.RowType      = USlateIconBrowserUserSettings::Get()->RowType;
-	RefreshFilter(FilterContext);
+	FSlateIconBrowserFilterContext Context = FilterCollectContext();
+	FilterRefresh(Context);
 }
 
 
@@ -205,28 +218,77 @@ MakeBottom()
 TSharedRef<SWidget> SSlateIconBrowserTab::
 MakeDetailControl_WidgetStyle()
 {
-	return SNew(SCheckBox)
-	.Visibility_Lambda([]()
-	{
-		return USlateIconBrowserUserSettings::Get()->RowType == ESlateIconBrowserRowFilterType::Widget ?
-			EVisibility::Visible:
-			EVisibility::Collapsed;
-	})
-	.IsChecked_Lambda([]()
-	{
-		return USlateIconBrowserUserSettings::Get()->bWidgetInsertText?
-			ECheckBoxState::Checked:
-			ECheckBoxState::Unchecked;
-	})
-	.OnCheckStateChanged_Lambda([](ECheckBoxState NewState)
-	{
-		USlateIconBrowserUserSettings::GetMutable()->bWidgetInsertText = NewState == ECheckBoxState::Checked;
-	})
-	[
-		SNew(STextBlock).Text(LOCTEXT("InsertText", "Insert Text"))
-	];
+	return SNew(SHorizontalBox)
+		.Visibility_Lambda([]()
+		{
+			return USlateIconBrowserUserSettings::Get()->RowType == ESlateIconBrowserRowFilterType::Widget ?
+				EVisibility::Visible:
+				EVisibility::Collapsed;
+		})
+		
+		// Widget Filter
+		+SHorizontalBox::Slot()
+		[
+			SAssignNew(WidgetStyleComboBox, SComboBox<TSharedPtr<FName>>)
+			.OnSelectionChanged_Lambda([this](TSharedPtr<FName> InItem, ESelectInfo::Type){
+				if (InItem.IsValid()){
+					USlateIconBrowserUserSettings::GetMutable()->HighlightWidgetStyleName = *InItem;
+					ListView.Get()->ScrollToTop();
+				}
+			})
+			.OptionsSource(&WidgetStyleList)
+			.OnGenerateWidget(this, &SSlateIconBrowserTab::OnGenerateStyleSelection)
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity_Lambda([this]()
+				{
+					FLinearColor Color = FLinearColor::Black;
+					Color = USlateIconBrowserUserSettings::Get()->HighlightWidgetStyleName == "None" ? FColor::Orange : Color;
+					Color = Rows.Num() == 0 ? FLinearColor::Red : Color;
+					return FSlateColor(Color);
+				})
+				.Text_Lambda([this]{
+					FText Display = FText::FromName(USlateIconBrowserUserSettings::Get()->HighlightWidgetStyleName);
+					if (USlateIconBrowserUserSettings::Get()->HighlightWidgetStyleName == "None"){
+						Display = LOCTEXT("HighligtWS Hint", "Select");
+					}
+					if (Rows.Num() == 0){
+						Display = LOCTEXT("NoRow", "Empty");
+					}
+					return Display;
+				})
+			]
+		]
+		
+		//Optional Insert Text to widget
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(FMargin(2,0,0,0))
+		[
+			SNew(SCheckBox)
+			.IsChecked_Lambda([]()
+			{
+				return USlateIconBrowserUserSettings::Get()->bWidgetInsertText?
+					ECheckBoxState::Checked:
+					ECheckBoxState::Unchecked;
+			})
+			.OnCheckStateChanged_Lambda([](ECheckBoxState NewState)
+			{
+				USlateIconBrowserUserSettings::GetMutable()->bWidgetInsertText = NewState == ECheckBoxState::Checked;
+			})
+			[
+				SNew(STextBlock).Text(LOCTEXT("InsertText", "Insert Text"))
+			]
+		];
 }
 
+
+
+TArray<TSharedPtr<FName>>& SSlateIconBrowserTab::
+GetWidgetStyleList()
+{
+	return WidgetStyleList;
+}
 
 FText SSlateIconBrowserTab::
 GetCodeStyleText(ECopyCodeStyle CopyStyle)

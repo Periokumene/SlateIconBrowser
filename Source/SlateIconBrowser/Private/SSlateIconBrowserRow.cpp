@@ -4,6 +4,7 @@
 #include "SlateIconBrowserUserSettings.h"
 #include "SlateIconBrowserUtils.h"
 #include "SlateOptMacros.h"
+#include "SSlateIconBrowserTab.h"
 #include "Styling/SlateStyleRegistry.h"
 
 #define LOCTEXT_NAMESPACE "SlateIconBrowserRow"
@@ -21,6 +22,12 @@ HandleFilter(const FSlateIconBrowserFilterContext& Context) const
 	return bPass;
 }
 
+
+EVisibility FSlateIconBrowserRowDesc::
+GetVisibility() const
+{
+	return EVisibility::Visible;
+}
 
 void FSlateIconBrowserRowDesc_Brush::
 CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
@@ -120,7 +127,7 @@ CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBro
 TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
 GenerateVisualizer() const
 {
-	if (WidgetStyleTypeName == FButtonStyle::TypeName)    { return GenerateVisualizer_Button();    }
+	if (WidgetStyleTypeName == FButtonStyle::TypeName) { return GenerateVisualizer_Button(); }
 	if (WidgetStyleTypeName == FCheckBoxStyle::TypeName)  { return GenerateVisualizer_CheckBox();  }
 	if (WidgetStyleTypeName == FTextBlockStyle::TypeName) { return GenerateVisualizer_TextBlock(); }
 	return GenerateVisualizer_Failure();
@@ -232,7 +239,33 @@ GetInsertText()
 bool FSlateIconBrowserRowDesc_Widget::
 CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
 {
-	return true;
+	return Context.RowType == ESlateIconBrowserRowFilterType::Widget;
+}
+
+EVisibility FSlateIconBrowserRowDesc_Widget::
+GetVisibility() const
+{
+	// TODO IsNone? Better a unique specifier
+	FName HighlightName = USlateIconBrowserUserSettings::Get()->HighlightWidgetStyleName;
+	const bool bVisible = HighlightName.IsNone() || HighlightName == WidgetStyleTypeName;
+	return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void FSlateIconBrowserRowDesc_Widget::
+CustomGenDetailFilter(TSharedPtr<SSlateIconBrowserTab> TabOwner)
+{
+	bool bExist = false;
+	for (const auto& WSNamePtr : TabOwner->WidgetStyleList){
+		if (WSNamePtr->IsEqual(WidgetStyleTypeName)){
+			bExist = true;
+			break;
+		}
+	}
+
+	if (!bExist)
+	{
+		TabOwner->WidgetStyleList.Add(MakeShared<FName>(WidgetStyleTypeName));
+	}
 }
 
 
@@ -245,6 +278,7 @@ Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableVie
 	ChildSlot
 	[
 		SNew(SBox)
+		.Visibility_Lambda([this](){ return RowDesc->GetVisibility(); })
 		.Padding(1.f)
 		[
 			SNew(SBorder)

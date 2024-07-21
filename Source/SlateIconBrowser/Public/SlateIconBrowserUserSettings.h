@@ -55,6 +55,9 @@ public:
 	
 	// Widget Style Visualizer
 	UPROPERTY()
+	FName HighlightWidgetStyleName;
+	
+	UPROPERTY()
 	bool bWidgetInsertText;
 	
 	UPROPERTY()

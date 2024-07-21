@@ -22,8 +22,9 @@ struct FSlateIconBrowserRowDesc
 	virtual TSharedRef<SWidget> GenerateVisualizer() const = 0;
 	bool HandleFilter(const FSlateIconBrowserFilterContext& Context) const;
 	
-protected:
 	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const = 0;
+	virtual void CustomGenDetailFilter(TSharedPtr<class SSlateIconBrowserTab> TabOwner) {}
+	virtual EVisibility GetVisibility() const;
 };
 
 
@@ -53,9 +54,11 @@ struct FSlateIconBrowserRowDesc_Widget : FSlateIconBrowserRowDesc
 	FSlateIconBrowserRowDesc_Widget(const ISlateStyle* InStyleOwner, const FName& InPropertyName, const TSharedRef<FSlateWidgetStyle> WidgetStyle)
 		: FSlateIconBrowserRowDesc(InStyleOwner, InPropertyName), WidgetStyleTypeName(WidgetStyle->GetTypeName()) {}
 	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
-	
+
 private:
 	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
+	virtual EVisibility GetVisibility() const override;
+	virtual void CustomGenDetailFilter(TSharedPtr<SSlateIconBrowserTab> TabOwner) override;
 
 	// Yes template can be avoided here, but it will make redundant code everywhere......
 	template<typename WidgetStyleType>

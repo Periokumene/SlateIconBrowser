@@ -37,12 +37,20 @@ class SSlateIconBrowserTab : public SCompoundWidget
 	TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<FSlateIconBrowserRowDesc> RowDesc, const TSharedRef<STableViewBase>& TableViewBase) const;
 	void CacheAllStyleNames();
 	void CacheAllLines();
-	void RefreshFilter(const FSlateIconBrowserFilterContext& Context);
+
+	// Filter!!
+	FSlateIconBrowserFilterContext FilterCollectContext() const;
+	void FilterRefresh(const FSlateIconBrowserFilterContext& Context);
 
 	
 	// Bottom
 	TSharedRef<SWidget> MakeBottom();
+	
 	TSharedRef<SWidget> MakeDetailControl_WidgetStyle();
+	TArray<TSharedPtr<FName>>& GetWidgetStyleList(); //Expose For Widget
+	TSharedPtr<SComboBox<TSharedPtr<FName>>> WidgetStyleComboBox;
+	TArray<TSharedPtr<FName>> WidgetStyleList;
+	
 
 	
 	// TODO Should move to UserSettings
