@@ -63,12 +63,49 @@ private:
 	// Yes template can be avoided here, but it will make redundant code everywhere......
 	template<typename WidgetStyleType>
 	const WidgetStyleType* GetLegalWidgetStyle() const; 
-	
+
+
+	// Widget Style Visualizer
 	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
+	TSharedRef<SWidget> GenerateVisualizer_Failure(const FText& InComment = FText::GetEmpty()) const; // Unimplement or meaningless
+	
 	TSharedRef<SWidget> GenerateVisualizer_Button() const;
 	TSharedRef<SWidget> GenerateVisualizer_CheckBox() const;
+
 	TSharedRef<SWidget> GenerateVisualizer_TextBlock() const;
-	TSharedRef<SWidget> GenerateVisualizer_Failure(const FText& InComment = FText::GetEmpty()) const;
+	TSharedRef<SWidget> GenerateVisualizer_EditableTextBox() const;
+	TSharedRef<SWidget> GenerateVisualizer_EditableText() const;
+	TSharedRef<SWidget> GenerateVisualizer_Hyperlink() const;
+	TSharedRef<SWidget> GenerateVisualizer_InlineEditableTextBlock() const;
+	
+	TSharedRef<SWidget> GenerateVisualizer_ComboBox() const;
+	TSharedRef<SWidget> GenerateVisualizer_ComboButton() const;
+
+	TSharedRef<SWidget> GenerateVisualizer_ExpandableArea() const;
+	
+	TSharedRef<SWidget> GenerateVisualizer_ProgressBar() const;
+	TSharedRef<SWidget> GenerateVisualizer_Slider() const;
+	TSharedRef<SWidget> GenerateVisualizer_SpinBox() const;
+	TSharedRef<SWidget> GenerateVisualizer_VolumeControl() const;
+
+	TSharedRef<SWidget> GenerateVisualizer_SearchBox() const;
+	TSharedRef<SWidget> GenerateVisualizer_ScrollBar() const;
+	TSharedRef<SWidget> GenerateVisualizer_ScrollBox() const;
+	TSharedRef<SWidget> GenerateVisualizer_Splitter() const;
+	
+	TSharedRef<SWidget> GenerateVisualizer_TableRow() const;
+	
+	TSharedRef<SWidget> GenerateVisualizer_WidgetCarouseNavigationBar() const;
+	TSharedRef<SWidget> GenerateVisualizer_WidgetCarouseNavigationButton() const;
+
+	TSharedRef<SWidget> GenerateVisualizer_ScrollBorder() const      { return GenerateVisualizer_Failure(); } // TODO ?
+	TSharedRef<SWidget> GenerateVisualizer_Synth2DSlider() const     { return GenerateVisualizer_Failure(); } // Meaningless
+	TSharedRef<SWidget> GenerateVisualizer_SynthKnob() const         { return GenerateVisualizer_Failure(); } // Meaningless
+	TSharedRef<SWidget> GenerateVisualizer_DockTab() const           { return GenerateVisualizer_Failure(); } // Meaningless
+	TSharedRef<SWidget> GenerateVisualizer_TableColumnHeader() const { return GenerateVisualizer_Failure(); } // Meaningless
+	TSharedRef<SWidget> GenerateVisualizer_HeaderRow() const         { return GenerateVisualizer_Failure(); } // Meaningless
+	TSharedRef<SWidget> GenerateVisualizer_Window() const            { return GenerateVisualizer_Failure(); } // Meaningless
+	
 
 	static EVisibility GetVisibility_Base();
 	static EVisibility GetVisibility_Insert();

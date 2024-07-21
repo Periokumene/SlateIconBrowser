@@ -1,11 +1,26 @@
 #include "SSlateIconBrowserRow.h"
 
+#include "SCarouselNavigationBar.h"
+#include "SCarouselNavigationButton.h"
 #include "SlateIconBrowserHacker.h"
 #include "SlateIconBrowserUserSettings.h"
 #include "SlateIconBrowserUtils.h"
 #include "SlateOptMacros.h"
 #include "SSlateIconBrowserTab.h"
+#include "WidgetCarouselStyle.h"
 #include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
+#include "UI/Synth2DSliderStyle.h"
+#include "UI/SynthKnobStyle.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Input/SSlider.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SVolumeControl.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "SlateIconBrowserRow"
 
@@ -118,18 +133,61 @@ CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
 void FSlateIconBrowserRowDesc_Widget::
 CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
 {
+	// Seldom Need Customization maybe ?
+	const TSet<FName> MeaningLessStyleType = {
+		FScrollBorderStyle::TypeName,
+		FSynth2DSliderStyle::TypeName,
+		FSynthKnobStyle::TypeName,
+		FDockTabStyle::TypeName,
+		FTableColumnHeaderStyle::TypeName,
+		FHeaderRowStyle::TypeName,
+		FWindowStyle::TypeName
+	};
+	
 	TMap<FName, TSharedRef<FSlateWidgetStyle>>* WidgetStyleMap = Hacker::Steal_WidgetStyleValues(StyleOwner);
+	
 	for (const auto& Pair : *WidgetStyleMap){
-		RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Widget(StyleOwner, Pair.Key, Pair.Value)));
+		if (!MeaningLessStyleType.Find(Pair.Value->GetTypeName()))
+		{
+			RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Widget(StyleOwner, Pair.Key, Pair.Value)));
+		}
 	}
 }
 
 TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
 GenerateVisualizer() const
 {
-	if (WidgetStyleTypeName == FButtonStyle::TypeName) { return GenerateVisualizer_Button(); }
+	if (WidgetStyleTypeName == FButtonStyle::TypeName)    { return GenerateVisualizer_Button();    }
 	if (WidgetStyleTypeName == FCheckBoxStyle::TypeName)  { return GenerateVisualizer_CheckBox();  }
 	if (WidgetStyleTypeName == FTextBlockStyle::TypeName) { return GenerateVisualizer_TextBlock(); }
+	if (WidgetStyleTypeName == FComboBoxStyle::TypeName)  { return GenerateVisualizer_ComboBox();  }
+	
+	if (WidgetStyleTypeName == FComboButtonStyle::TypeName)       { return GenerateVisualizer_ComboButton();       }
+	if (WidgetStyleTypeName == FDockTabStyle::TypeName)           { return GenerateVisualizer_DockTab();           }
+	if (WidgetStyleTypeName == FEditableTextBoxStyle::TypeName)   { return GenerateVisualizer_EditableTextBox();   }
+	if (WidgetStyleTypeName == FEditableTextStyle::TypeName)      { return GenerateVisualizer_EditableText();      }
+	if (WidgetStyleTypeName == FExpandableAreaStyle::TypeName)    { return GenerateVisualizer_ExpandableArea();    }
+	if (WidgetStyleTypeName == FHeaderRowStyle::TypeName)         { return GenerateVisualizer_HeaderRow();         }
+	if (WidgetStyleTypeName == FHyperlinkStyle::TypeName)         { return GenerateVisualizer_Hyperlink();         }
+	if (WidgetStyleTypeName == FProgressBarStyle::TypeName)       { return GenerateVisualizer_ProgressBar();       }
+	if (WidgetStyleTypeName == FScrollBarStyle::TypeName)         { return GenerateVisualizer_ScrollBar();         }
+	if (WidgetStyleTypeName == FScrollBorderStyle::TypeName)      { return GenerateVisualizer_ScrollBorder();      }
+	if (WidgetStyleTypeName == FScrollBoxStyle::TypeName)         { return GenerateVisualizer_ScrollBox();         }
+	if (WidgetStyleTypeName == FSearchBoxStyle::TypeName)         { return GenerateVisualizer_SearchBox();         }
+	if (WidgetStyleTypeName == FSliderStyle::TypeName)            { return GenerateVisualizer_Slider();            }
+	if (WidgetStyleTypeName == FSpinBoxStyle::TypeName)           { return GenerateVisualizer_SpinBox();           }
+	if (WidgetStyleTypeName == FSplitterStyle::TypeName)          { return GenerateVisualizer_Splitter();          }
+	if (WidgetStyleTypeName == FTableColumnHeaderStyle::TypeName) { return GenerateVisualizer_TableColumnHeader(); }
+	if (WidgetStyleTypeName == FTableRowStyle::TypeName)          { return GenerateVisualizer_TableRow();          }
+	if (WidgetStyleTypeName == FVolumeControlStyle::TypeName)     { return GenerateVisualizer_VolumeControl();     }
+	if (WidgetStyleTypeName == FSynth2DSliderStyle::TypeName)     { return GenerateVisualizer_Synth2DSlider();     }
+	if (WidgetStyleTypeName == FSynthKnobStyle::TypeName)         { return GenerateVisualizer_SynthKnob();         }
+
+	if (WidgetStyleTypeName == FInlineEditableTextBlockStyle::TypeName)        { return GenerateVisualizer_InlineEditableTextBlock(); }
+	if (WidgetStyleTypeName == FWidgetCarouselNavigationBarStyle::TypeName)    { return GenerateVisualizer_WidgetCarouseNavigationBar(); }
+	if (WidgetStyleTypeName == FWidgetCarouselNavigationButtonStyle::TypeName) { return GenerateVisualizer_WidgetCarouseNavigationButton(); }
+	if (WidgetStyleTypeName == FWindowStyle::TypeName)                         { return GenerateVisualizer_Window() ; }
+	
 	return GenerateVisualizer_Failure();
 }
 
@@ -184,27 +242,256 @@ GenerateVisualizer_CheckBox() const
 	return GenerateVisualizer_Failure();
 }
 
+
 TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
 GenerateVisualizer_TextBlock() const
 {
 	if (const FTextBlockStyle* WS = GetLegalWidgetStyle<FTextBlockStyle>())
     {
-    	return SNew(SHorizontalBox)
-    	+SHorizontalBox::Slot()
-    	[
-    		SNew(STextBlock)
-    		.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Base)
-    		.TextStyle(WS)
-    	]
-    	+SHorizontalBox::Slot()
-    	[
-    		SNew(SButton)
-    		.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
-    		.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Insert)
-    		.TextStyle(WS)
-    	];
+    	return SNew(STextBlock)
+			.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			.TextStyle(WS);
     }
     return GenerateVisualizer_Failure();
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_EditableTextBox() const
+{
+	if (const FEditableTextBoxStyle* WS = GetLegalWidgetStyle<FEditableTextBoxStyle>())
+	{
+		return SNew(SEditableTextBox)
+			.Style(WS)
+			.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_EditableText() const
+{
+	if (const FEditableTextStyle* WS = GetLegalWidgetStyle<FEditableTextStyle>())
+	{
+		return SNew(SEditableText)
+			.Style(WS)
+			.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_Hyperlink() const
+{
+	if (const FHyperlinkStyle* WS = GetLegalWidgetStyle<FHyperlinkStyle>())
+	{
+		return SNew(SHyperlink)
+			.Style(WS)
+			.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			.OnNavigate_Lambda([](){ FMessageDialog::Debugf(FText::FromString(TEXT("This is a HyperLink"))); });
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_InlineEditableTextBlock() const
+{
+	if (const FInlineEditableTextBlockStyle* WS = GetLegalWidgetStyle<FInlineEditableTextBlockStyle>())
+	{
+		return SNew(SInlineEditableTextBlock)
+			.Style(WS)
+			.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_ComboBox() const
+{
+	if (const FComboBoxStyle* WS = GetLegalWidgetStyle<FComboBoxStyle>())
+	{
+		return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		[
+			SNew(SComboBox<TSharedPtr<FName>>)
+			.ComboBoxStyle(WS)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Base)
+		]
+		+SHorizontalBox::Slot()
+		[
+			SNew(SComboBox<TSharedPtr<FName>>)
+			.ComboBoxStyle(WS)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Insert)
+			[
+				SNew(STextBlock)
+				.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			]
+		];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_ComboButton() const
+{
+	if (const FComboButtonStyle* WS = GetLegalWidgetStyle<FComboButtonStyle>())
+	{
+		return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		[
+			SNew(SComboButton)
+			.ComboButtonStyle(WS)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Base)
+		]
+		+SHorizontalBox::Slot()
+		[
+			SNew(SComboButton)
+			.ComboButtonStyle(WS)
+			.Visibility_Static(&FSlateIconBrowserRowDesc_Widget::GetVisibility_Insert)
+			.ButtonContent()
+			[
+				SNew(STextBlock)
+				.Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			]
+		];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_ExpandableArea() const
+{
+	if (const FExpandableAreaStyle* WS = GetLegalWidgetStyle<FExpandableAreaStyle>())
+	{
+		return SNew(SExpandableArea)
+			.Style(WS)
+			.HeaderContent() [ SNew(STextBlock).Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText) ]
+			.BodyContent()   [ SNew(STextBlock).Text_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText) ];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_ProgressBar() const
+{
+	if (const FProgressBarStyle* WS = GetLegalWidgetStyle<FProgressBarStyle>())
+	{
+		return SNew(SBox)
+			.WidthOverride(256)
+			[
+				SNew(SProgressBar)
+				.Percent(0.393939)
+				.Style(WS)
+			];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_Slider() const
+{
+	if (const FSliderStyle* WS = GetLegalWidgetStyle<FSliderStyle>())
+	{
+		return SNew(SBox)
+			.WidthOverride(256)
+			[
+				SNew(SSlider).Style(WS)
+			];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_SpinBox() const
+{
+	if (const FSpinBoxStyle* WS = GetLegalWidgetStyle<FSpinBoxStyle>())
+	{
+		return SNew(SSpinBox<int>)
+			.MinDesiredWidth(50)
+			.MaxFractionalDigits(1)
+			.MinValue(0)
+			.MaxValue(1024)
+			.Style(WS);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_VolumeControl() const
+{
+	if (const FVolumeControlStyle* WS = GetLegalWidgetStyle<FVolumeControlStyle>())
+	{
+		return SNew(SVolumeControl).Style(WS);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_SearchBox() const
+{
+	if (const FSearchBoxStyle* WS = GetLegalWidgetStyle<FSearchBoxStyle>())
+	{
+		return SNew(SSearchBox)
+			.MinDesiredWidth(256)
+			.HintText_Static(&FSlateIconBrowserRowDesc_Widget::GetInsertText)
+			.Style(WS);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_ScrollBar() const
+{
+	if (const FScrollBarStyle* WS = GetLegalWidgetStyle<FScrollBarStyle>())
+	{
+		return SNew(SScrollBar).Style(WS);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_ScrollBox() const
+{
+	if (const FScrollBoxStyle* WS = GetLegalWidgetStyle<FScrollBoxStyle>())
+	{
+		return SNew(SScrollBox).Style(WS);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_Splitter() const
+{
+	if (const FSplitterStyle* WS = GetLegalWidgetStyle<FSplitterStyle>())
+	{
+		return SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			[ SNew(SBorder).Padding(FMargin(32, 2)) ]
+			+SHorizontalBox::Slot()
+			[ SNew(SSplitter).Orientation(Orient_Vertical).Style(WS) ]
+			+SHorizontalBox::Slot()
+			[ SNew(SBorder).Padding(FMargin(32, 2)) ];
+	}
+	return GenerateVisualizer_Failure();
+}
+
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_TableRow() const
+{
+	// TODO Table Row Visualizer is a little complex
+	return GenerateVisualizer_Failure();
 }
 
 
@@ -215,6 +502,30 @@ GenerateVisualizer_Failure(const FText& InComment) const
 	return SNew(STextBlock)
 	.Text(FText::Format(LOCTEXT("WSTypeHint", "{0} | {1} "), TypeName, InComment))
 	.ColorAndOpacity(FColor::Orange);
+}
+
+
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_WidgetCarouseNavigationBar() const
+{
+	if (const FWidgetCarouselNavigationBarStyle* WS = GetLegalWidgetStyle<FWidgetCarouselNavigationBarStyle>())
+	{
+		return SNew(SCarouselNavigationBar)
+			.ItemCount(10)
+			.Style(WS);
+	}
+	return GenerateVisualizer_Failure();
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_Widget::
+GenerateVisualizer_WidgetCarouseNavigationButton() const
+{
+	if (const FWidgetCarouselNavigationButtonStyle* WS = GetLegalWidgetStyle<FWidgetCarouselNavigationButtonStyle>())
+	{
+		return SNew(SCarouselNavigationButton).Style(WS);
+	}
+	return GenerateVisualizer_Failure();
 }
 
 EVisibility FSlateIconBrowserRowDesc_Widget::

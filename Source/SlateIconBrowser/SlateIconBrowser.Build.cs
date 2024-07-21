@@ -47,7 +47,9 @@ public class SlateIconBrowser : ModuleRules
 				"ApplicationCore",
 				"WorkspaceMenuStructure",
 				"EditorWidgets",
-				"DeveloperSettings",
+				"DeveloperSettings", 
+				"WidgetCarousel", 
+				"Synthesis",
 			}
 			);
 		

@@ -264,6 +264,7 @@ MakeDetailControl_WidgetStyle()
 		
 		// Widget Filter
 		+SHorizontalBox::Slot()
+		.AutoWidth()
 		[
 			SAssignNew(WidgetStyleComboBox, SComboBox<TSharedPtr<FName>>)
 			.OnSelectionChanged_Lambda([this](TSharedPtr<FName> InItem, ESelectInfo::Type){
