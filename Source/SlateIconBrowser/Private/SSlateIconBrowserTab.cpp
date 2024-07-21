@@ -7,10 +7,13 @@
 #include "SSlateIconBrowserRow.h"
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
+#include "Misc/ScopedSlowTask.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Layout/SSeparator.h"
 
 #define LOCTEXT_NAMESPACE "SSlateIconBrowserTab"
+
+FName SSlateIconBrowserTab::Key_StyleFilterNone = "Show All";
 
 void SSlateIconBrowserTab::
 Construct(const FArguments& InArgs)
@@ -88,15 +91,48 @@ CacheAllStyleNames()
 		const FString BString = B->ToString();
 		return AString.Compare(BString) < 0;
 	});
+
+	AllStyles.Insert(MakeShared<FName>(Key_StyleFilterNone), 0);
+}
+
+void SSlateIconBrowserTab::
+CacheRowDescs()
+{
+	AllRows.Reset();
+
+	TArray<const FSlateStyleSet*> StylesToScan;
+
+	TArray<TSharedPtr<FName>> PendingScanStyleNames = { MakeShared<FName>(USlateIconBrowserUserSettings::Get()->SelectedStyle) };
+	if (USlateIconBrowserUserSettings::Get()->SelectedStyle == Key_StyleFilterNone){
+		PendingScanStyleNames = AllStyles;
+	}
+
+	FScopedSlowTask Task(PendingScanStyleNames.Num(), LOCTEXT("SlowTaskCacheRows", "Caching Style Rows"));
+	Task.MakeDialog();
+	for (const TSharedPtr<FName> StyleName : PendingScanStyleNames)
+	{
+		Task.EnterProgressFrame();
+		if (*StyleName == Key_StyleFilterNone)
+		{
+			continue;
+		}
+		const ISlateStyle* Style = FSlateStyleRegistry::FindSlateStyle(*StyleName);
+		const FSlateStyleSet* StyleSet = static_cast<const FSlateStyleSet*>(Style);
+		if (!StyleSet){
+			ensureMsgf(false, TEXT("Unexpected nullptr"));
+			continue;
+		}
+		FSlateIconBrowserRowDesc_Brush::CacheFromStyle(StyleSet, AllRows);
+		FSlateIconBrowserRowDesc_Font::CacheFromStyle(StyleSet, AllRows);
+		FSlateIconBrowserRowDesc_Widget::CacheFromStyle(StyleSet, AllRows);
+	}
 }
 
 
 void SSlateIconBrowserTab::
 CacheAllLines()
 {
-	TArray<FSlateIconBrowserRowDesc> RowDescs;
-	FSlateIconBrowserUtils::CacheRowDescs(AllRows);
-
+	CacheRowDescs();
 	FSlateIconBrowserFilterContext Context = FilterCollectContext();
 	FilterRefresh(Context);
 }

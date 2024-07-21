@@ -36,6 +36,7 @@ class SSlateIconBrowserTab : public SCompoundWidget
 	TSharedRef<SWidget> MakeBody();
 	TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<FSlateIconBrowserRowDesc> RowDesc, const TSharedRef<STableViewBase>& TableViewBase) const;
 	void CacheAllStyleNames();
+	void CacheRowDescs();
 	void CacheAllLines();
 
 	// Filter!!
@@ -61,6 +62,7 @@ private:
 	TArray<TSharedPtr<FSlateIconBrowserRowDesc>> Rows;
 	TArray<TSharedPtr<FSlateIconBrowserRowDesc>> AllRows;
 	TArray<TSharedPtr<FName>> AllStyles;
+	static FName Key_StyleFilterNone;
 	
 	TSharedPtr<STextBlock> CopyNoteTextBlock;
 	TSharedPtr<SListView<TSharedPtr<FSlateIconBrowserRowDesc>>> ListView;

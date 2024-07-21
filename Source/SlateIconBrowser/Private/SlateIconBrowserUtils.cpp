@@ -47,22 +47,4 @@ GenerateCopyCode(FName Name, ECopyCodeStyle CodeStyle)
 	return CopyText;
 }
 
-void FSlateIconBrowserUtils::
-CacheRowDescs(TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowDescArrOut)
-{
-	RowDescArrOut.Reset();
-	
-	const ISlateStyle* Style = FSlateStyleRegistry::FindSlateStyle(USlateIconBrowserUserSettings::Get()->SelectedStyle);
-	const FSlateStyleSet* StyleSet = static_cast<const FSlateStyleSet*>(Style);
-	if (!StyleSet){
-		ensureMsgf(false, TEXT("Unexpected nullptr"));
-		return;
-	}
-
-	FSlateIconBrowserRowDesc_Brush::CacheFromStyle(StyleSet, RowDescArrOut);
-	FSlateIconBrowserRowDesc_Font::CacheFromStyle(StyleSet, RowDescArrOut);
-	FSlateIconBrowserRowDesc_Widget::CacheFromStyle(StyleSet, RowDescArrOut);
-}
-
-
 #undef LOCTEXT_NAMESPACE
