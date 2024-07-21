@@ -20,10 +20,11 @@ struct FSlateIconBrowserRowDesc
 	FName OwnerStyleName;
 	FName PropertyName;
 	virtual TSharedRef<SWidget> GenerateVisualizer() const = 0;
+
 	bool HandleFilter(const FSlateIconBrowserFilterContext& Context) const;
-	
 	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const = 0;
 	virtual void CustomGenDetailFilter(TSharedPtr<class SSlateIconBrowserTab> TabOwner) {}
+	virtual FString GenerateCode(ECopyCodeFormat CodeFormat) const;
 	virtual EVisibility GetVisibility() const;
 };
 
@@ -34,6 +35,7 @@ struct FSlateIconBrowserRowDesc_Brush : FSlateIconBrowserRowDesc
 	FSlateIconBrowserRowDesc_Brush(const ISlateStyle* InStyleOwner, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwner, InPropertyName) {}
 	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
 	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
+	virtual FString GenerateCode(ECopyCodeFormat CodeFormat) const override;
 	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
 };
 
@@ -156,6 +158,8 @@ public:
 	FSlateColor GetHoverColor() const;
 	FReply OnMouseDoubleClick(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
 	FReply EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
+
+	static void ExecuteCopyCode(FString InCode);
 
 private:
 	TSharedPtr<FSlateIconBrowserRowDesc> RowDesc;

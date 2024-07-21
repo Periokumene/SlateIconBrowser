@@ -22,12 +22,14 @@ enum class ESlateIconBrowserRowFilterType
 };
 
 
+// Name this enum `Style` make it confused with WidgetStyle,
+// but actually they mean totally different two things
 UENUM()
-enum ECopyCodeStyle
+enum ECopyCodeFormat
 {
-	CS_FSlateIcon,
-	CS_FSlateIconFinderFindIcon,
-	CS_CustomStyle,
+	CF_FSlateIcon,
+	CF_FSlateIconFinderFindIcon,
+	CF_Custom,
 };
 
 
@@ -40,6 +42,7 @@ class USlateIconBrowserUserSettings : public UObject
 public:
 	static const USlateIconBrowserUserSettings* Get()  { return GetDefault<USlateIconBrowserUserSettings>(); }
 	static USlateIconBrowserUserSettings* GetMutable() { return GetMutableDefault<USlateIconBrowserUserSettings>(); }
+	static FText GetCopyCodeFormatDescription(ECopyCodeFormat Format);
 
 	// Filter Related
 	void ValidateConfig();
@@ -48,13 +51,13 @@ public:
 	FString FilterString;
 	
 	UPROPERTY(Config)
-	FString CustomFormat;
+	FString FormatCustomExpression;
 
 	UPROPERTY(Config)
 	FName SelectedStyle;
 
 	UPROPERTY(Config)
-	TEnumAsByte<ECopyCodeStyle> CopyCodeStyle;
+	TEnumAsByte<ECopyCodeFormat> CopyCodeFormat;
 
 	
 	// Widget Style Visualizer

@@ -1,5 +1,16 @@
 #include "SlateIconBrowserUserSettings.h"
 
+FText USlateIconBrowserUserSettings::
+GetCopyCodeFormatDescription(ECopyCodeFormat Format)
+{
+	switch (Format) {
+		case CF_FSlateIcon:               { return FText::FromString(TEXT("FSlateIcon(...)")); }
+		case CF_FSlateIconFinderFindIcon: { return FText::FromString(TEXT("FSlateIconFinder::FindIcon(...)")); }
+		case CF_Custom:                   { return FText::FromString(Get()->FormatCustomExpression.IsEmpty() ? TEXT("(Custom)") : Get()->FormatCustomExpression); }
+		default:                          { return FText::FromString(TEXT("Error! Unexpected Format Enum")); }
+	}
+}
+
 void USlateIconBrowserUserSettings::
 ValidateConfig()
 {

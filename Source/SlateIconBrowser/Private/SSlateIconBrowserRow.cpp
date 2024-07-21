@@ -4,11 +4,11 @@
 #include "SCarouselNavigationButton.h"
 #include "SlateIconBrowserHacker.h"
 #include "SlateIconBrowserUserSettings.h"
-#include "SlateIconBrowserUtils.h"
 #include "SlateOptMacros.h"
 #include "SSearchableComboBox.h"
 #include "SSlateIconBrowserTab.h"
 #include "WidgetCarouselStyle.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Styling/SlateTypes.h"
 #include "UI/Synth2DSliderStyle.h"
@@ -20,6 +20,7 @@
 #include "Widgets/Input/SVolumeControl.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Widgets/Notifications/SProgressBar.h"
 #include "Widgets/Text/SInlineEditableTextBlock.h"
 
@@ -38,6 +39,12 @@ HandleFilter(const FSlateIconBrowserFilterContext& Context) const
 	return bPass;
 }
 
+
+FString FSlateIconBrowserRowDesc::
+GenerateCode(ECopyCodeFormat CodeFormat) const
+{
+	return PropertyName.ToString(); // UnImplement, just copy PropertyName
+}
 
 EVisibility FSlateIconBrowserRowDesc::
 GetVisibility() const
@@ -77,6 +84,21 @@ GenerateVisualizer() const
 #endif
 		.Image(Brush);
 }
+
+
+FString FSlateIconBrowserRowDesc_Brush::
+GenerateCode(ECopyCodeFormat CodeFormat) const
+{
+	// TODO Translator
+	switch (CodeFormat) {
+		case CF_FSlateIcon:               { return FString::Printf(TEXT("FSlateIcon(\"%s\", \"%s\")"), *OwnerStyleName.ToString(), *PropertyName.ToString()); }
+		case CF_FSlateIconFinderFindIcon: { return FString::Printf(TEXT("FSlateIconFinder::FindIcon(\"%s\")"), *PropertyName.ToString()); }
+		case CF_Custom:              { return USlateIconBrowserUserSettings::Get()->FormatCustomExpression.Replace(TEXT("$1"), *PropertyName.ToString()); }
+		default:                          { ensureMsgf(false, TEXT("Unexpected new Format")); }
+	}
+	return FSlateIconBrowserRowDesc::GenerateCode(CodeFormat);
+}
+
 
 bool FSlateIconBrowserRowDesc_Brush::
 CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
@@ -136,6 +158,7 @@ CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBro
 		}
 	}
 }
+
 
 TSharedRef<SWidget> FSlateIconBrowserRowDesc_FontAwesome::
 GenerateVisualizer() const
@@ -705,7 +728,8 @@ Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InTableVie
 FReply SSlateIconBrowserRow::
 OnMouseDoubleClick(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 {
-	FSlateIconBrowserUtils::CopyIconCodeToClipboard(RowDesc->PropertyName, USlateIconBrowserUserSettings::Get()->CopyCodeStyle);
+	FString Code = RowDesc->GenerateCode(USlateIconBrowserUserSettings::Get()->CopyCodeFormat);
+	ExecuteCopyCode(Code);
 	return FReply::Handled();
 }
 
@@ -713,53 +737,61 @@ OnMouseDoubleClick(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 FReply SSlateIconBrowserRow::
 EntryContextMenu(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 {
-	if (PointerEvent.GetEffectingButton() != EKeys::RightMouseButton)
+	if (PointerEvent.GetEffectingButton() != EKeys::RightMouseButton){
 		return FReply::Unhandled();
-
-	if (PointerEvent.GetEventPath() == nullptr)
+	}
+	if (PointerEvent.GetEventPath() == nullptr){
 		return FReply::Unhandled();
+	}
+	
 
 	FString CopyCode;
-	auto Clipboard = [&](FName N, ECopyCodeStyle CodeStyle)
-	{
-		FSlateIconBrowserUtils::CopyIconCodeToClipboard(N, CodeStyle);
-	};
-
-	
 	FMenuBuilder MenuBuilder(true, nullptr);
 	MenuBuilder.BeginSection("CopyOptions", LOCTEXT("CopyCodeOptions", "Copy Code"));
 	{
-		CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_FSlateIcon);
-		MenuBuilder.AddMenuEntry(
-			FText::FromString(CopyCode),
-			FText::GetEmpty(),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_FSlateIcon)));
-		CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_FSlateIconFinderFindIcon);
-		MenuBuilder.AddMenuEntry(
-			FText::FromString(CopyCode),
-			FText::GetEmpty(),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_FSlateIconFinderFindIcon)));
+		CopyCode = RowDesc->GenerateCode(CF_FSlateIcon);
+		MenuBuilder.AddMenuEntry(FText::FromString(CopyCode), FText::GetEmpty(), FSlateIcon(),
+			FUIAction(FExecuteAction::CreateStatic(&SSlateIconBrowserRow::ExecuteCopyCode, CopyCode)));
 		
-		if (!USlateIconBrowserUserSettings::Get()->CustomFormat.IsEmpty()) {
-			CopyCode = FSlateIconBrowserUtils::GenerateCopyCode(RowDesc->PropertyName, CS_CustomStyle);
-			MenuBuilder.AddMenuEntry(
-				FText::FromString(CopyCode),
-				FText::GetEmpty(),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateLambda(Clipboard, RowDesc->PropertyName, CS_CustomStyle)));
+		CopyCode = RowDesc->GenerateCode(CF_FSlateIconFinderFindIcon);
+		MenuBuilder.AddMenuEntry(FText::FromString(CopyCode), FText::GetEmpty(), FSlateIcon(),
+			FUIAction(FExecuteAction::CreateStatic(&SSlateIconBrowserRow::ExecuteCopyCode, CopyCode)));
+		
+		if (!USlateIconBrowserUserSettings::Get()->FormatCustomExpression.IsEmpty())
+		{
+			CopyCode = RowDesc->GenerateCode(CF_Custom);
+			MenuBuilder.AddMenuEntry(FText::FromString(CopyCode), FText::GetEmpty(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateStatic(&SSlateIconBrowserRow::ExecuteCopyCode, CopyCode)));
 		}
 	}
 	MenuBuilder.EndSection();
 
+	
 	TSharedPtr<SWidget> MenuWidget = MenuBuilder.MakeWidget();
 	FWidgetPath WidgetPath = *PointerEvent.GetEventPath();
 	const FVector2D& Location = PointerEvent.GetScreenSpacePosition();
 	FSlateApplication::Get().PushMenu(WidgetPath.Widgets.Last().Widget, WidgetPath, MenuWidget.ToSharedRef(), Location, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
-			
+
+	
 	return FReply::Handled();
 }
+
+void SSlateIconBrowserRow::
+ExecuteCopyCode(FString InCode)
+{
+	FPlatformApplicationMisc::ClipboardCopy(*InCode);
+	UE_LOG(LogTemp, Warning, TEXT("Copy code to clipboard: %s"), *InCode);
+
+	FNotificationInfo Info(LOCTEXT("CopiedNotification", "C++ code copied to clipboard"));
+	Info.ExpireDuration = 3.f;
+#if ENGINE_MAJOR_VERSION == 5
+	Info.SubText = FText::FromString(CopyText);
+#else
+	Info.Text = FText::FromString(InCode);
+#endif
+	FSlateNotificationManager::Get().AddNotification(Info);
+}
+
 
 void SSlateIconBrowserRow::
 OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)

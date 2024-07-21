@@ -3,7 +3,6 @@
 #include "SEnumCombobox.h"
 #include "SlateIconBrowserStyle.h"
 #include "SlateIconBrowserUserSettings.h"
-#include "SlateIconBrowserUtils.h"
 #include "SSlateIconBrowserRow.h"
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
@@ -228,7 +227,11 @@ MakeBottom()
 		[
 			SAssignNew(CopyNoteTextBlock, STextBlock)
 			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
-			.Text_Lambda([this]{ return GetCodeStyleText(USlateIconBrowserUserSettings::Get()->CopyCodeStyle); })
+			.Text_Lambda([this]
+			{
+				const USlateIconBrowserUserSettings* UserSettings = USlateIconBrowserUserSettings::Get();
+				return UserSettings->GetCopyCodeFormatDescription(UserSettings->CopyCodeFormat);
+			})
 		]
 
 		// Right Controller, including RowType Filter and RowType-based Detailed Control
@@ -343,24 +346,6 @@ GetWidgetStyleList()
 	return WidgetStyleList;
 }
 
-FText SSlateIconBrowserTab::
-GetCodeStyleText(ECopyCodeStyle CopyStyle)
-{
-	switch (CopyStyle) {
-	case CS_FSlateIcon:
-		return FText::FromString(TEXT("FSlateIcon(...)"));
-		break;
-	case CS_FSlateIconFinderFindIcon:
-		return FText::FromString(TEXT("FSlateIconFinder::FindIcon(...)"));
-		break;
-	case CS_CustomStyle:
-		return FText::FromString(USlateIconBrowserUserSettings::Get()->CustomFormat.IsEmpty() ?
-			TEXT("(Custom)") :
-			USlateIconBrowserUserSettings::Get()->CustomFormat);
-		break;
-	}
-	return FText::GetEmpty();
-}
 
 TSharedRef<SWidget> SSlateIconBrowserTab::
 MakeHead()
@@ -410,19 +395,19 @@ FillHelpMenu(FMenuBuilder& MenuBuilder)
 void SSlateIconBrowserTab::
 FillSettingsMenu(FMenuBuilder& MenuBuilder)
 {
-	TArray<ECopyCodeStyle> Formats = {
-		CS_FSlateIcon,
-		CS_FSlateIconFinderFindIcon,
-		CS_CustomStyle
+	TArray<ECopyCodeFormat> Formats = {
+		CF_FSlateIcon,
+		CF_FSlateIconFinderFindIcon,
+		CF_Custom
 	};
-	auto ExecuteLambda = [](ECopyCodeStyle InFormat)
+	auto ExecuteLambda = [](ECopyCodeFormat InFormat)
 	{
-		USlateIconBrowserUserSettings::GetMutable()->CopyCodeStyle = InFormat;
+		USlateIconBrowserUserSettings::GetMutable()->CopyCodeFormat = InFormat;
 		USlateIconBrowserUserSettings::GetMutable()->SaveConfig();
 	};
-	auto IsCheckLambda = [](ECopyCodeStyle InFormat)
+	auto IsCheckLambda = [](ECopyCodeFormat InFormat)
 	{
-		return USlateIconBrowserUserSettings::Get()->CopyCodeStyle == InFormat ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return USlateIconBrowserUserSettings::Get()->CopyCodeFormat == InFormat ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	};
 
 	
@@ -433,8 +418,10 @@ FillSettingsMenu(FMenuBuilder& MenuBuilder)
 			FUIAction Action;
 			Action.ExecuteAction.BindLambda(ExecuteLambda, Format);
 			Action.GetActionCheckState.BindLambda(IsCheckLambda, Format);
-			
-			MenuBuilder.AddMenuEntry(GetCodeStyleText(Format), GetCodeStyleTooltip(Format), FSlateIcon(),
+
+			const FText StyleDisplayName = USlateIconBrowserUserSettings::GetCopyCodeFormatDescription(Format);
+			const FText ToolTip          = FText::Format(LOCTEXT("CopyStyleTooltip", "Copy code in {0} style"), StyleDisplayName);
+			MenuBuilder.AddMenuEntry(StyleDisplayName, ToolTip, FSlateIcon(),
 				Action, NAME_None, EUserInterfaceActionType::RadioButton);
 		}
 	}
@@ -530,13 +517,13 @@ OnGenerateStyleSelection(TSharedPtr<FName> InItem)
 FText SSlateIconBrowserTab::
 GetCustomFormat() const
 {
-	return FText::FromString(USlateIconBrowserUserSettings::Get()->CustomFormat);
+	return FText::FromString(USlateIconBrowserUserSettings::Get()->FormatCustomExpression);
 }
 
 void SSlateIconBrowserTab::
 OnCustomFormatChange(const FText& Text, ETextCommit::Type)
 {
-	USlateIconBrowserUserSettings::GetMutable()->CustomFormat = Text.ToString();
+	USlateIconBrowserUserSettings::GetMutable()->FormatCustomExpression = Text.ToString();
 	USlateIconBrowserUserSettings::GetMutable()->SaveConfig();
 	CopyNoteTextBlock->Invalidate(EInvalidateWidgetReason::Paint); // What's Invalidate
 }
@@ -566,13 +553,6 @@ MakeBody()
 			.Text(LOCTEXT("NoResults", "No results found."))
 		]
 	];
-}
-
-
-FText SSlateIconBrowserTab::
-GetCodeStyleTooltip(ECopyCodeStyle CopyStyle)
-{
-	return FText::Format(LOCTEXT("CopyStyleTooltip", "Copy code in {0} style"), GetCodeStyleText(CopyStyle));
 }
 
 

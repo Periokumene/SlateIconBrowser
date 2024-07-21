@@ -51,13 +51,8 @@ class SSlateIconBrowserTab : public SCompoundWidget
 	TArray<TSharedPtr<FName>>& GetWidgetStyleList(); //Expose For Widget
 	TSharedPtr<SComboBox<TSharedPtr<FName>>> WidgetStyleComboBox;
 	TArray<TSharedPtr<FName>> WidgetStyleList;
-	
 
 	
-	// TODO Should move to UserSettings
-	static FText GetCodeStyleText(ECopyCodeStyle CopyStyle);
-	static FText GetCodeStyleTooltip(ECopyCodeStyle CopyStyle);
-
 private:
 	TArray<TSharedPtr<FSlateIconBrowserRowDesc>> Rows;
 	TArray<TSharedPtr<FSlateIconBrowserRowDesc>> AllRows;
