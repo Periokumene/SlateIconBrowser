@@ -55,6 +55,7 @@ OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 	USlateIconBrowserUserSettings::GetMutable()->ValidateConfig();
 	USlateIconBrowserUserSettings::GetMutable()->InitTranslator();
+	USlateIconBrowserUserSettings::GetMutable()->InitGlyphList();
 	
 	TSharedRef<SSlateIconBrowserTab> NewTab = SNew(SSlateIconBrowserTab);
 	NewTab->CacheAllStyleNames();
@@ -124,6 +125,7 @@ CacheRowDescs()
 		}
 		FSlateIconBrowserRowDesc_Brush::CacheFromStyle(StyleSet, AllRows);
 		FSlateIconBrowserRowDesc_Font::CacheFromStyle(StyleSet, AllRows);
+		FSlateIconBrowserRowDesc_FontAwesome::CacheFromStyle(StyleSet, AllRows);
 		FSlateIconBrowserRowDesc_Widget::CacheFromStyle(StyleSet, AllRows);
 	}
 }
@@ -161,9 +163,23 @@ FilterRefresh(const FSlateIconBrowserFilterContext& Context)
 		}
 	}
 
-	Rows.Sort([](const TSharedPtr<FSlateIconBrowserRowDesc>& A, const TSharedPtr<FSlateIconBrowserRowDesc>& B){
-		return A->PropertyName.Compare(B->PropertyName) < 0;
+
+	auto GetSuffixSize = [](const TSharedPtr<FSlateIconBrowserRowDesc>& Row)
+	{
+		TArray<FString> Arr;
+		Row->PropertyName.ToString().ParseIntoArray(Arr, TEXT("."));
+		return Arr.Num() > 1 ? FCString::Atoi(*Arr.Last()) : -1;
+	};
+
+	
+	Rows.Sort([&GetSuffixSize, &Context](const TSharedPtr<FSlateIconBrowserRowDesc>& A, const TSharedPtr<FSlateIconBrowserRowDesc>& B)
+	{
+		if (Context.RowType != ESlateIconBrowserRowFilterType::FontAwesome){
+			return A->PropertyName.Compare(B->PropertyName) < 0;
+		}
+		return GetSuffixSize(A) < GetSuffixSize(B);
 	});
+
 	
 	if (ListView.IsValid()){
 		ListView.Get()->RequestListRefresh();

@@ -49,6 +49,16 @@ struct FSlateIconBrowserRowDesc_Font : FSlateIconBrowserRowDesc
 
 
 //======================================================================================================================
+struct FSlateIconBrowserRowDesc_FontAwesome : FSlateIconBrowserRowDesc
+{
+	FSlateIconBrowserRowDesc_FontAwesome(const ISlateStyle* InStyleOwner, const FName& InPropertyName) : FSlateIconBrowserRowDesc(InStyleOwner, InPropertyName) {}
+	static void CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut);
+	virtual TSharedRef<SWidget> GenerateVisualizer() const override;
+	virtual bool CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const override;
+};
+
+
+//======================================================================================================================
 struct FSlateIconBrowserRowDesc_Widget : FSlateIconBrowserRowDesc
 {
 	FSlateIconBrowserRowDesc_Widget(const ISlateStyle* InStyleOwner, const FName& InPropertyName, const TSharedRef<FSlateWidgetStyle> WidgetStyle)

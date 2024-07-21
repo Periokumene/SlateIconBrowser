@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EditorFontGlyphs.h"
 #include "Engine/DeveloperSettings.h"
 #include "UObject/Object.h"
 #include "SlateIconBrowserUserSettings.generated.h"
@@ -14,8 +15,10 @@ enum class ESlateIconBrowserRowFilterType
 	Brush,
 	Widget,
 	Font,
-	FontDefault,
 	FontAwesome,
+
+	// TODO
+	// FontDefault,
 };
 
 
@@ -26,6 +29,7 @@ enum ECopyCodeStyle
 	CS_FSlateIconFinderFindIcon,
 	CS_CustomStyle,
 };
+
 
 
 UCLASS(Config=EditorPerProjectUserSettings, ConfigDoNotCheckDefaults)
@@ -64,6 +68,10 @@ public:
 	FText FontPreviewText = FText::FromString(TEXT("Why did we play Haruhikage?!")); // Just for fun!
 
 	UPROPERTY()
+	FText FontAwesomePreviewText;
+
+	// Row Type Filter
+	UPROPERTY()
 	ESlateIconBrowserRowFilterType RowType;
 
 
@@ -84,4 +92,13 @@ public:
 	// Diable Row List Selection, hover color will be lost when right click menu pop up
 	// So use this to optimize hover color change
 	TWeakPtr<SWidget> LastHoveredRow;
+
+
+public:
+	void InitGlyphList();
+	TArray<TSharedPtr<FString>> GlyphNames;
+	TMap<TSharedPtr<FString>, FText> GlyphMap;
+
+private:
+	bool bGlyphInit;
 };

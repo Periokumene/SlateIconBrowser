@@ -50,6 +50,7 @@ public class SlateIconBrowser : ModuleRules
 				"DeveloperSettings", 
 				"WidgetCarousel", 
 				"Synthesis",
+				"EditorStyle",
 			}
 			);
 		

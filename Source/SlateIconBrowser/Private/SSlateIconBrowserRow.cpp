@@ -6,6 +6,7 @@
 #include "SlateIconBrowserUserSettings.h"
 #include "SlateIconBrowserUtils.h"
 #include "SlateOptMacros.h"
+#include "SSearchableComboBox.h"
 #include "SSlateIconBrowserTab.h"
 #include "WidgetCarouselStyle.h"
 #include "Styling/SlateStyleRegistry.h"
@@ -91,7 +92,9 @@ CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBro
 	TMap<FName, FSlateFontInfo>* FontMap = Hacker::Steal_FontInfoResources(StyleOwner);
 	FontMap->GenerateKeyArray(Keys);
 	for (const FName& Key : Keys){
-		RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Font(StyleOwner, Key)));
+		if (Key.ToString().Find(TEXT("FontAwesome")) == INDEX_NONE){
+			RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_Font(StyleOwner, Key)));
+		}
 	}
 }
 
@@ -99,22 +102,13 @@ CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBro
 TSharedRef<SWidget> FSlateIconBrowserRowDesc_Font::
 GenerateVisualizer() const
 {
-	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(OwnerStyleName)){
-		if (PropertyName.ToString().Find(TEXT("FontAwesome")) != INDEX_NONE) // TODO FontAwesome Special
-		{
-			return SNew(STextBlock)
-			// .Font(OwnerStyle->GetFontStyle(InDesc.PropertyName))
-			.Text(FText::FromString(TEXT("FontAwesome WIP")))
-			.ColorAndOpacity(FColor::Orange);
-		}
-		else
-		{
-			return SNew(SEditableText)
-			.Font(OwnerStyle->GetFontStyle(PropertyName))
-			.Text_Lambda([](){ return USlateIconBrowserUserSettings::Get()->FontPreviewText; })
-			.OnTextChanged_Lambda([](const FText& InText)                     { USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; })
-			.OnTextCommitted_Lambda([](const FText& InText, ETextCommit::Type){ USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; });
-		}
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(OwnerStyleName))
+	{
+		return SNew(SEditableText)
+		.Font(OwnerStyle->GetFontStyle(PropertyName))
+		.Text_Lambda([](){ return USlateIconBrowserUserSettings::Get()->FontPreviewText; })
+		.OnTextChanged_Lambda([](const FText& InText)                     { USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; })
+		.OnTextCommitted_Lambda([](const FText& InText, ETextCommit::Type){ USlateIconBrowserUserSettings::GetMutable()->FontPreviewText = InText; });
 	}
 	
 	return SNew(STextBlock)
@@ -129,6 +123,94 @@ CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
 	return Context.RowType == ESlateIconBrowserRowFilterType::Font;
 }
 
+
+void FSlateIconBrowserRowDesc_FontAwesome::
+CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
+{
+	TArray<FName> Keys;
+	TMap<FName, FSlateFontInfo>* FontMap = Hacker::Steal_FontInfoResources(StyleOwner);
+	FontMap->GenerateKeyArray(Keys);
+	for (const FName& Key : Keys){
+		if (Key.ToString().Find(TEXT("FontAwesome")) != INDEX_NONE){
+			RowListOut.Add(MakeShareable(new FSlateIconBrowserRowDesc_FontAwesome(StyleOwner, Key)));
+		}
+	}
+}
+
+TSharedRef<SWidget> FSlateIconBrowserRowDesc_FontAwesome::
+GenerateVisualizer() const
+{
+	if (const ISlateStyle* OwnerStyle = FSlateStyleRegistry::FindSlateStyle(OwnerStyleName))
+	{
+		return SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SEditableText)
+				.Font(OwnerStyle->GetFontStyle(PropertyName))
+				.OnTextCommitted_Lambda([](const FText& Text, ETextCommit::Type){
+					USlateIconBrowserUserSettings::GetMutable()->FontAwesomePreviewText = Text;
+				})
+				.Text_Lambda([](){
+					return USlateIconBrowserUserSettings::Get()->FontAwesomePreviewText;
+				})
+			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(FMargin(8, 0))
+			[
+				SNew(SSearchableComboBox)
+				.OptionsSource(&USlateIconBrowserUserSettings::GetMutable()->GlyphNames)
+				.OnSelectionChanged_Lambda([](TSharedPtr<FString> InGlyphName, ESelectInfo::Type)
+				{
+					const FText* GlyphValuePtr = USlateIconBrowserUserSettings::Get()->GlyphMap.Find(InGlyphName);
+					GlyphValuePtr = GlyphValuePtr ? GlyphValuePtr : &FEditorFontGlyphs::Crosshairs;
+					
+					FText OldText = USlateIconBrowserUserSettings::Get()->FontAwesomePreviewText;
+					FText AddText = *GlyphValuePtr;
+					
+					USlateIconBrowserUserSettings::GetMutable()->FontAwesomePreviewText =
+						FText::Format(LOCTEXT("NewFontAwesomePreviewFomart", "{0}{1}"), OldText, AddText);
+				})
+				.OnGenerateWidget_Lambda([](TSharedPtr<FString> InGlyphName)
+				{
+					const FText* GlyphValuePtr = USlateIconBrowserUserSettings::Get()->GlyphMap.Find(InGlyphName);
+					GlyphValuePtr = GlyphValuePtr ? GlyphValuePtr : &FEditorFontGlyphs::Crosshairs;
+					
+					return SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.HAlign(HAlign_Left)
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(*InGlyphName))
+						]
+						+SHorizontalBox::Slot()
+						.HAlign(HAlign_Right)
+						.Padding(2)
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("FontAwesome.16"))
+							.Text(*GlyphValuePtr)
+						];
+				})
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("GlyphPickerTitle", "Select"))
+				]
+			];
+	}
+	
+	return SNew(STextBlock)
+		.Text(FText::FromString(TEXT("ERROR")))
+		.ColorAndOpacity(FLinearColor::Red);
+}
+
+
+bool FSlateIconBrowserRowDesc_FontAwesome::
+CustomHandleFilter(const FSlateIconBrowserFilterContext& Context) const
+{
+	return Context.RowType == ESlateIconBrowserRowFilterType::FontAwesome;
+}
 
 void FSlateIconBrowserRowDesc_Widget::
 CacheFromStyle(const FSlateStyleSet* StyleOwner, TArray<TSharedPtr<FSlateIconBrowserRowDesc>>& RowListOut)
